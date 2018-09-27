@@ -59,6 +59,7 @@ use MOM_time_manager, only : days_in_month
 use MOM_verticalGrid, only : verticalGrid_type
 use mpp_mod,         only:  mpp_chksum
 use mpp_io_mod,      only:  mpp_attribute_exist, mpp_get_atts
+use fms_io_mod, only: fms_register_restart_field => register_restart_field
 
 implicit none ; private
 
@@ -430,7 +431,8 @@ subroutine register_restart_field_0d(f_ptr, name, mandatory, CS, longname, units
   vd = var_desc(name, units=units, longname=longname, hor_grid='1', &
                 z_grid='1', t_grid=t_grid)
 
-  call register_restart_field_ptr0d(f_ptr, vd, mandatory, CS)
+!  call register_restart_field_ptr0d(f_ptr, vd, mandatory, CS)
+call fms_register_restart_field()
 
 end subroutine register_restart_field_0d
 
