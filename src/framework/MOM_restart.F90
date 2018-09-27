@@ -285,6 +285,7 @@ subroutine register_restart_field_4d(f_ptr, name, mandatory, CS, longname, units
   character(len=*), optional, intent(in) :: t_grid    !< time description: s, p, or 1, 's' if absent
 
   type(vardesc) :: vd
+  integer :: pos !< An integer indicating staggering of variable
 
   if (.not.associated(CS)) call MOM_error(FATAL, "MOM_restart: " // &
       "register_restart_field_4d: Module must be initialized before "//&
@@ -292,7 +293,10 @@ subroutine register_restart_field_4d(f_ptr, name, mandatory, CS, longname, units
   vd = var_desc(name, units=units, longname=longname, hor_grid=hor_grid, &
                 z_grid=z_grid, t_grid=t_grid)
 
-  call register_restart_field_ptr4d(f_ptr, vd, mandatory, CS)
+  pos = get_hor_grid_position(vd%hor_grid)
+ 
+!  call register_restart_field_ptr4d(f_ptr, vd, mandatory, CS)
+call fms_register_restart_field(CS,CS%restartfile,vd%name,CS%var_ptr2d(CS%novars)%p,pos)
 
 end subroutine register_restart_field_4d
 
@@ -391,6 +395,7 @@ subroutine register_restart_field_0d(f_ptr, name, mandatory, CS, longname, units
   character(len=*), optional, intent(in) :: longname  !< variable long name
   character(len=*), optional, intent(in) :: units     !< variable units
   character(len=*), optional, intent(in) :: t_grid    !< time description: s, p, or 1, 's' if absent
+  type(ocean_grid_type),   intent(in) :: G     !< The ocean's grid structure Liptak
 
   type(vardesc) :: vd
   if (.not.associated(CS)) call MOM_error(FATAL, "MOM_restart: " // &
@@ -400,7 +405,9 @@ subroutine register_restart_field_0d(f_ptr, name, mandatory, CS, longname, units
                 z_grid='1', t_grid=t_grid)
 
 !  call register_restart_field_ptr0d(f_ptr, vd, mandatory, CS)
-call fms_register_restart_field()
+! need arguments for hor_grid
+call fms_register_restart_field(CS,CS%restartfile,vd%name,CS%var_ptr2d(CS%novars)%p)
+
 
 end subroutine register_restart_field_0d
 
@@ -1508,5 +1515,27 @@ subroutine get_checksum_loop_ranges(G, pos, isL, ieL, jsL, jeL)
   endif
 
 end subroutine get_checksum_loop_ranges
+
+!> get position values from horizontal grid (hor_grid)
+!! This just pulls the select_case blocks in other routines to a function called
+!! by the register_restart_field routines for interfacing with fms_io
+!>@returns pos: the horizontal staggering of a variable
+!! LIPTAK
+function get_hor_grid_position(hor_grid) result(pos)
+   character(len=*),intent(in) :: hor_grid !< variable horizonal staggering
+   integer  :: pos !< An integer indicating staggering of variable
+   select case (hor_grid)
+     case ('q') ; pos = CORNER
+     case ('h') ; pos = CENTER
+     case ('u') ; pos = EAST_FACE
+     case ('v') ; pos = NORTH_FACE
+     case ('Bu') ; pos = CORNER
+     case ('T')  ; pos = CENTER
+     case ('Cu') ; pos = EAST_FACE
+     case ('Cv') ; pos = NORTH_FACE
+     case ('1') ; pos = CENTER
+     case default ; pos = CENTER
+   end select
+end function get_hor_grid_position
 
 end module MOM_restart
