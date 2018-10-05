@@ -19,7 +19,7 @@ use MOM_time_manager, only : days_in_month, get_date, set_date
 use MOM_verticalGrid, only : verticalGrid_type
 use mpp_mod,         only:  mpp_chksum,mpp_pe
 use mpp_io_mod,      only:  mpp_attribute_exist, mpp_get_atts
-use fms_io_mod, only: fms_register_restart_field => register_restart_field
+use fms_io_mod, only: fms_register_restart_field=> register_restart_field
 
 implicit none ; private
 
@@ -296,7 +296,7 @@ subroutine register_restart_field_4d(f_ptr, name, mandatory, CS, longname, units
   pos = get_hor_grid_position(vd%hor_grid)
  
 !  call register_restart_field_ptr4d(f_ptr, vd, mandatory, CS)
-call fms_register_restart_field(CS,CS%restartfile,vd%name,CS%var_ptr2d(CS%novars)%p,pos)
+call fms_register_restart_field(fileObj=CS,filename=CS%restartfile,fieldname=name,data=CS%var_ptr2d(CS%novars)%p,position=pos)
 
 end subroutine register_restart_field_4d
 
@@ -323,7 +323,7 @@ subroutine register_restart_field_3d(f_ptr, name, mandatory, CS, longname, units
   vd = var_desc(name, units=units, longname=longname, hor_grid=hor_grid, &
                 z_grid=z_grid, t_grid=t_grid)
 
-  call register_restart_field_ptr3d(f_ptr, vd, mandatory, CS)
+!  call register_restart_field_ptr3d(f_ptr, vd, mandatory, CS)
 
 end subroutine register_restart_field_3d
 
@@ -352,7 +352,7 @@ subroutine register_restart_field_2d(f_ptr, name, mandatory, CS, longname, units
   vd = var_desc(name, units=units, longname=longname, hor_grid=hor_grid, &
                 z_grid=zgrid, t_grid=t_grid)
 
-  call register_restart_field_ptr2d(f_ptr, vd, mandatory, CS)
+!  call register_restart_field_ptr2d(f_ptr, vd, mandatory, CS)
 
 end subroutine register_restart_field_2d
 
@@ -380,7 +380,7 @@ subroutine register_restart_field_1d(f_ptr, name, mandatory, CS, longname, units
   vd = var_desc(name, units=units, longname=longname, hor_grid=hgrid, &
                 z_grid=z_grid, t_grid=t_grid)
 
-  call register_restart_field_ptr1d(f_ptr, vd, mandatory, CS)
+!  call register_restart_field_ptr1d(f_ptr, vd, mandatory, CS)
 
 end subroutine register_restart_field_1d
 
@@ -395,18 +395,20 @@ subroutine register_restart_field_0d(f_ptr, name, mandatory, CS, longname, units
   character(len=*), optional, intent(in) :: longname  !< variable long name
   character(len=*), optional, intent(in) :: units     !< variable units
   character(len=*), optional, intent(in) :: t_grid    !< time description: s, p, or 1, 's' if absent
-  type(ocean_grid_type),   intent(in) :: G     !< The ocean's grid structure Liptak
-
   type(vardesc) :: vd
+  integer :: pos !< An integer indicating staggering of variable
+
   if (.not.associated(CS)) call MOM_error(FATAL, "MOM_restart: " // &
       "register_restart_field_0d: Module must be initialized before "//&
       "it is used to register "//trim(name))
   vd = var_desc(name, units=units, longname=longname, hor_grid='1', &
                 z_grid='1', t_grid=t_grid)
 
+  pos = get_hor_grid_position(vd%hor_grid)
+ 
 !  call register_restart_field_ptr0d(f_ptr, vd, mandatory, CS)
 ! need arguments for hor_grid
-call fms_register_restart_field(CS,CS%restartfile,vd%name,CS%var_ptr2d(CS%novars)%p)
+!call fms_register_restart_field(CS,CS%restartfile,vd%name,CS%var_ptr2d(CS%novars)%p,pos)
 
 
 end subroutine register_restart_field_0d
