@@ -2476,7 +2476,7 @@ subroutine finish_MOM_initialization(Time, dirs, CS, restart_CSp)
     allocate(z_interface(SZI_(G),SZJ_(G),SZK_(G)+1))
     call find_eta(CS%h, CS%tv, GV%g_Earth, G, GV, z_interface)
     call register_restart_field(z_interface, "eta", .true., restart_CSp_tmp, &
-                                "Interface heights", "meter", z_grid='i')
+                                "Interface heights", "meter", z_grid='i',G=G)
 
     call save_restart(dirs%output_directory, Time, G, &
                       restart_CSp_tmp, filename=CS%IC_file, GV=GV)
