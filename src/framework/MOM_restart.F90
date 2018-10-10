@@ -19,7 +19,7 @@ use MOM_time_manager, only : days_in_month, get_date, set_date
 use MOM_verticalGrid, only : verticalGrid_type
 use mpp_mod,         only:  mpp_chksum,mpp_pe
 use mpp_io_mod,      only:  mpp_attribute_exist, mpp_get_atts
-use fms_io_mod, only: fms_register_restart_field=> register_restart_field
+use fms_io_mod, only: fms_register_restart_field => register_restart_field
 
 implicit none ; private
 
@@ -271,7 +271,7 @@ end subroutine register_restart_field_ptr0d
 
 !> Register a 4-d field for restarts, providing the metadata as individual arguments
 subroutine register_restart_field_4d(f_ptr, name, mandatory, CS, longname, units, &
-                                     hor_grid, z_grid, t_grid)
+                                     hor_grid, z_grid, t_grid,G)
   real, dimension(:,:,:,:), &
                       target, intent(in) :: f_ptr     !< A pointer to the field to be read or written
   character(len=*),           intent(in) :: name      !< variable name to be used in the restart file
@@ -283,6 +283,9 @@ subroutine register_restart_field_4d(f_ptr, name, mandatory, CS, longname, units
   character(len=*), optional, intent(in) :: hor_grid  !< variable horizonal staggering, 'h' if absent
   character(len=*), optional, intent(in) :: z_grid    !< variable vertical staggering, 'L' if absent
   character(len=*), optional, intent(in) :: t_grid    !< time description: s, p, or 1, 's' if absent
+  type(ocean_grid_type),   optional, intent(in) :: G !< ocean horizontal grid structure; G or dG
+                                                     !! is required if the new file uses any
+                                                     !! horizontal grid axes.
 
   type(vardesc) :: vd
   integer :: pos !< An integer indicating staggering of variable
@@ -296,7 +299,7 @@ subroutine register_restart_field_4d(f_ptr, name, mandatory, CS, longname, units
   pos = get_hor_grid_position(vd%hor_grid)
  
 !  call register_restart_field_ptr4d(f_ptr, vd, mandatory, CS)
-call fms_register_restart_field(fileObj=CS,filename=CS%restartfile,fieldname=name,data=CS%var_ptr2d(CS%novars)%p,position=pos)
+call fms_register_restart_field(register_restart_field_r4d(fileObj=CS,filename=CS%restartfile,fieldname=name,data=CS%var_ptr2d(CS%novars)%p,domain = G%Domain, no_domain =.false., position=pos))
 
 end subroutine register_restart_field_4d
 
