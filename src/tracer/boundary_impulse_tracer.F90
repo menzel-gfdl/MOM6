@@ -63,17 +63,18 @@ end type boundary_impulse_tracer_CS
 contains
 
 !> Read in runtime options and add boundary impulse tracer to tracer registry
-function register_boundary_impulse_tracer(HI, GV, param_file, CS, tr_Reg, restart_CS)
+function register_boundary_impulse_tracer(HI, GV, param_file, G, CS, tr_Reg, restart_CS)
   type(hor_index_type),             intent(in   ) :: HI   !< A horizontal index type structure
   type(verticalGrid_type),          intent(in   ) :: GV   !< The ocean's vertical grid structure
   type(param_file_type),            intent(in   ) :: param_file !< A structure to parse for run-time parameters
+  type(ocean_grid_type),            intent(in)    :: G    !< The ocean's grid structure
   type(boundary_impulse_tracer_CS), pointer       :: CS   !< The control structure returned by a previous
                                                           !! call to register_boundary_impulse_tracer.
   type(tracer_registry_type),       pointer       :: tr_Reg !< A pointer that is set to point to the control
                                                           !! structure for the tracer advection and
                                                           !! diffusion module
   type(MOM_restart_CS),             pointer       :: restart_CS !< A pointer to the restart control structure
-
+ 
   ! Local variables
   character(len=40)  :: mdl = "boundary_impulse_tracer" ! This module's name.
   character(len=200) :: inputdir ! The directory where the input files are.
@@ -124,7 +125,7 @@ function register_boundary_impulse_tracer(HI, GV, param_file, CS, tr_Reg, restar
     tr_ptr => CS%tr(:,:,:,m)
     call query_vardesc(CS%tr_desc(m), name=var_name, caller="register_boundary_impulse_tracer")
     ! Register the tracer for horizontal advection, diffusion, and restarts.
-    call register_tracer(tr_ptr, tr_Reg, param_file, HI, GV, tr_desc=CS%tr_desc(m), &
+    call register_tracer(tr_ptr, tr_Reg, param_file, HI, GV, G, tr_desc=CS%tr_desc(m), &
                          registry_diags=.true., flux_units=flux_units, &
                          restart_CS=restart_CS, mandatory=.not.CS%tracers_may_reinit)
 
@@ -138,7 +139,7 @@ function register_boundary_impulse_tracer(HI, GV, param_file, CS, tr_Reg, restar
   ! Register remaining source time as a restart field
   rem_time_ptr => CS%remaining_source_time
   call register_restart_field(rem_time_ptr, "bir_remain_time", &
-                              .not.CS%tracers_may_reinit, restart_CS, &
+                              .not.CS%tracers_may_reinit, restart_CS, CS%G, &
                               "Remaining time to apply BIR source", "s")
 
   CS%tr_Reg => tr_Reg
