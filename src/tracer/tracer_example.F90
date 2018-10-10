@@ -53,10 +53,11 @@ end type USER_tracer_example_CS
 contains
 
 !> This subroutine is used to register tracer fields and subroutines to be used with MOM.
-function USER_register_tracer_example(HI, GV, param_file, CS, tr_Reg, restart_CS)
+function USER_register_tracer_example(HI, GV, param_file, G, CS, tr_Reg, restart_CS)
   type(hor_index_type),    intent(in)   :: HI   !< A horizontal index type structure
   type(verticalGrid_type), intent(in)   :: GV   !< The ocean's vertical grid structure
   type(param_file_type),   intent(in)   :: param_file !< A structure to parse for run-time parameters
+  type(ocean_grid_type),   intent(in)   :: G    !< The ocean's grid structure
   type(USER_tracer_example_CS), pointer :: CS   !< A pointer that is set to point to the control
                                                 !! structure for this module
   type(tracer_registry_type), pointer   :: tr_Reg !< A pointer that is set to point to the control
@@ -117,7 +118,7 @@ function USER_register_tracer_example(HI, GV, param_file, CS, tr_Reg, restart_CS
     ! calls.  Curses on the designers and implementers of Fortran90.
     tr_ptr => CS%tr(:,:,:,m)
     ! Register the tracer for horizontal advection, diffusion, and restarts.
-    call register_tracer(tr_ptr, tr_Reg, param_file, HI, GV, &
+    call register_tracer(tr_ptr, tr_Reg, param_file, HI, GV, G, &
                          name=name, longname=longname, units="kg kg-1", &
                          registry_diags=.true., flux_units=flux_units, &
                          restart_CS=restart_CS)
