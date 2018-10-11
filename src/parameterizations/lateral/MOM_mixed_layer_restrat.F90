@@ -898,7 +898,7 @@ subroutine mixedlayer_restrat_register_restarts(HI, param_file, C, CS, restart_C
   ! Arguments
   type(hor_index_type),        intent(in)    :: HI         !< Horizontal index structure
   type(param_file_type),       intent(in)    :: param_file !< Parameter file to parse
-  type(ocean_grid_type),       intent(in)    :: G          !< ocean horizontal grid structure;
+  type(ocean_grid_type),       intent(in)    :: G          !< ocean horizontal grid structure
   type(mixedlayer_restrat_CS), pointer       :: CS         !< Module control structure
   type(MOM_restart_CS),        pointer       :: restart_CS !< Restart structure
   ! Local variables

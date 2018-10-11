@@ -2104,7 +2104,7 @@ subroutine initialize_MOM(Time, Time_init, param_file, dirs, CS, restart_CSp, &
                             CS%tracer_Reg, restart_CSp)
 
   call MEKE_alloc_register_restart(dG%HI, param_file, CS%MEKE, restart_CSp)
-  call set_visc_register_restarts(dG%HI, GV, param_file, CS%visc, restart_CSp)
+  call set_visc_register_restarts(dG%HI, GV, param_file,G, CS%visc, restart_CSp)
   call mixedlayer_restrat_register_restarts(dG%HI, param_file, G, &
            CS%mixedlayer_restrat_CSp, restart_CSp)
 
