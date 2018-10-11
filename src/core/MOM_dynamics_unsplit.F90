@@ -517,9 +517,10 @@ end subroutine step_MOM_dyn_unsplit
 !!
 !! All variables registered here should have the ability to be recreated if they are not present
 !! in a restart file.
-subroutine register_restarts_dyn_unsplit(HI, GV, param_file, CS, restart_CS)
+subroutine register_restarts_dyn_unsplit(HI, GV, G, param_file, CS, restart_CS)
   type(hor_index_type),      intent(in) :: HI         !< A horizontal index type structure.
   type(verticalGrid_type),   intent(in) :: GV         !< The ocean's vertical grid structure.
+  type(ocean_grid_type),     intent(in) :: G          !< ocean horizontal grid structure
   type(param_file_type),     intent(in) :: param_file !< A structure to parse for
                                                       !! run-time parameters.
   type(MOM_dyn_unsplit_CS),  pointer    :: CS         !< The control structure set up by

@@ -2088,13 +2088,13 @@ subroutine initialize_MOM(Time, Time_init, param_file, dirs, CS, restart_CSp, &
   call restart_init(param_file, restart_CSp)
   call set_restart_fields(GV, param_file, CS, restart_CSp)
   if (CS%split) then
-    call register_restarts_dyn_split_RK2(dG%HI, GV, param_file, &
+    call register_restarts_dyn_split_RK2(dG%HI, GV, G, param_file, &
              CS%dyn_split_RK2_CSp, restart_CSp, CS%uh, CS%vh)
   elseif (CS%use_RK2) then
-    call register_restarts_dyn_unsplit_RK2(dG%HI, GV, param_file, &
+    call register_restarts_dyn_unsplit_RK2(dG%HI, GV, G, param_file, &
            CS%dyn_unsplit_RK2_CSp, restart_CSp)
   else
-    call register_restarts_dyn_unsplit(dG%HI, GV, param_file, &
+    call register_restarts_dyn_unsplit(dG%HI, GV, G, param_file, &
            CS%dyn_unsplit_CSp, restart_CSp)
   endif
 
@@ -2109,7 +2109,7 @@ subroutine initialize_MOM(Time, Time_init, param_file, dirs, CS, restart_CSp, &
            CS%mixedlayer_restrat_CSp, restart_CSp)
 
   if (associated(CS%OBC)) &
-    call open_boundary_register_restarts(dg%HI, GV, CS%OBC, restart_CSp)
+    call open_boundary_register_restarts(dg%HI, GV, G, CS%OBC, restart_CSp)
 
   call callTree_waypoint("restart registration complete (initialize_MOM)")
 

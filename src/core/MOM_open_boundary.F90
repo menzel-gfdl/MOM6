@@ -3918,9 +3918,10 @@ subroutine flood_fill2(G, color, cin, cout, cland)
 end subroutine flood_fill2
 
 !> Register OBC segment data for restarts
-subroutine open_boundary_register_restarts(HI, GV, OBC_CS,restart_CSp)
+subroutine open_boundary_register_restarts(HI, GV, G, OBC_CS,restart_CSp)
   type(hor_index_type),    intent(in) :: HI !< Horizontal indices
   type(verticalGrid_type), pointer    :: GV !< Container for vertical grid information
+  type(ocean_grid_type),   intent(in) :: G  !< ocean horizontal grid structure
   type(ocean_OBC_type),    pointer    :: OBC_CS !< OBC data structure, data intent(inout)
   type(MOM_restart_CS),    pointer    :: restart_CSp !< Restart structure, data intent(inout)
   ! Local variables
@@ -3942,17 +3943,17 @@ subroutine open_boundary_register_restarts(HI, GV, OBC_CS,restart_CSp)
     allocate(OBC_CS%rx_normal(HI%isdB:HI%iedB,HI%jsd:HI%jed,GV%ke))
     OBC_CS%rx_normal(:,:,:) = 0.0
     vd = var_desc("rx_normal","m s-1", "Normal Phase Speed for EW OBCs",'u','L')
-    call register_restart_field(OBC_CS%rx_normal, vd, .true., restart_CSp)
+    call register_restart_field(OBC_CS%rx_normal, vd, .true., G, restart_CSp)
     allocate(OBC_CS%ry_normal(HI%isd:HI%ied,HI%jsdB:HI%jedB,GV%ke))
     OBC_CS%ry_normal(:,:,:) = 0.0
     vd = var_desc("ry_normal","m s-1", "Normal Phase Speed for NS OBCs",'v','L')
-    call register_restart_field(OBC_CS%ry_normal, vd, .true., restart_CSp)
+    call register_restart_field(OBC_CS%ry_normal, vd, .true., G, restart_CSp)
   endif
   if (OBC_CS%oblique_BCs_exist_globally) then
     allocate(OBC_CS%cff_normal(HI%IsdB:HI%IedB,HI%jsdB:HI%jedB,GV%ke))
     OBC_CS%cff_normal(:,:,:) = 0.0
     vd = var_desc("cff_normal","m s-1", "denominator for oblique OBCs",'q','L')
-    call register_restart_field(OBC_CS%cff_normal, vd, .true., restart_CSp)
+    call register_restart_field(OBC_CS%cff_normal, vd, .true., G, restart_CSp)
   endif
 
 end subroutine open_boundary_register_restarts
