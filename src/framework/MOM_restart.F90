@@ -323,6 +323,8 @@ subroutine register_restart_field_3d(f_ptr, name, mandatory, G, CS, longname, un
   character(len=*), optional, intent(in) :: t_grid    !< time description: s, p, or 1, 's' if absent
 
   type(vardesc) :: vd
+  integer :: pos !< An integer indicating staggering of variable
+  integer :: id_restart !< ID returned by call to fms_register_restart_field function
 
   if (.not.associated(CS)) call MOM_error(FATAL, "MOM_restart: " // &
       "register_restart_field_3d: Module must be initialized before "//&
@@ -330,8 +332,10 @@ subroutine register_restart_field_3d(f_ptr, name, mandatory, G, CS, longname, un
   vd = var_desc(name, units=units, longname=longname, hor_grid=hor_grid, &
                 z_grid=z_grid, t_grid=t_grid)
 
+  pos = get_hor_grid_position(vd%hor_grid)
+  
 !  call register_restart_field_ptr3d(f_ptr, vd, mandatory, CS)
-
+  id_restart = fms_register_restart_field(CS%fileObj, CS%restartfile, name, f_ptr, G%Domain%mpp_domain, position=pos)
 end subroutine register_restart_field_3d
 
 !> Register a 2-d field for restarts, providing the metadata as individual arguments
@@ -352,6 +356,9 @@ subroutine register_restart_field_2d(f_ptr, name, mandatory, G, CS, longname, un
 
   type(vardesc) :: vd
   character(len=8) :: Zgrid
+  integer :: pos !< An integer indicating staggering of variable
+  integer :: id_restart !< ID returned by call to fms_register_restart_field function
+
 
   if (.not.associated(CS)) call MOM_error(FATAL, "MOM_restart: " // &
       "register_restart_field_2d: Module must be initialized before "//&
@@ -360,8 +367,9 @@ subroutine register_restart_field_2d(f_ptr, name, mandatory, G, CS, longname, un
   vd = var_desc(name, units=units, longname=longname, hor_grid=hor_grid, &
                 z_grid=zgrid, t_grid=t_grid)
 
+  pos = get_hor_grid_position(vd%hor_grid)
 !  call register_restart_field_ptr2d(f_ptr, vd, mandatory, CS)
-
+  id_restart = fms_register_restart_field(CS%fileObj, CS%restartfile, name, f_ptr, G%Domain%mpp_domain, position=pos)
 end subroutine register_restart_field_2d
 
 !> Register a 1-d field for restarts, providing the metadata as individual arguments
@@ -381,6 +389,8 @@ subroutine register_restart_field_1d(f_ptr, name, mandatory, G, CS, longname, un
 
   type(vardesc) :: vd
   character(len=8) :: hgrid
+  integer :: pos !< An integer indicating staggering of variable
+  integer :: id_restart !< ID returned by call to fms_register_restart_field function
 
   if (.not.associated(CS)) call MOM_error(FATAL, "MOM_restart: " // &
       "register_restart_field_3d: Module must be initialized before "//&
@@ -389,8 +399,9 @@ subroutine register_restart_field_1d(f_ptr, name, mandatory, G, CS, longname, un
   vd = var_desc(name, units=units, longname=longname, hor_grid=hgrid, &
                 z_grid=z_grid, t_grid=t_grid)
 
+  pos = get_hor_grid_position(vd%hor_grid)
 !  call register_restart_field_ptr1d(f_ptr, vd, mandatory, CS)
-
+  id_restart = fms_register_restart_field(CS%fileObj, CS%restartfile, name, f_ptr, G%Domain%mpp_domain, position=pos)
 end subroutine register_restart_field_1d
 
 !> Register a 0-d field for restarts, providing the metadata as individual arguments
@@ -407,6 +418,7 @@ subroutine register_restart_field_0d(f_ptr, name, mandatory, G, CS, longname, un
   character(len=*), optional, intent(in) :: t_grid    !< time description: s, p, or 1, 's' if absent
   type(vardesc) :: vd
   integer :: pos !< An integer indicating staggering of variable
+  integer :: id_restart !< ID returned by call to fms_register_restart_field function
 
   if (.not.associated(CS)) call MOM_error(FATAL, "MOM_restart: " // &
       "register_restart_field_0d: Module must be initialized before "//&
@@ -418,8 +430,7 @@ subroutine register_restart_field_0d(f_ptr, name, mandatory, G, CS, longname, un
  
 !  call register_restart_field_ptr0d(f_ptr, vd, mandatory, CS)
 ! need arguments for hor_grid
-!call fms_register_restart_field(CS,CS%restartfile,vd%name,CS%var_ptr2d(CS%novars)%p,pos)
-
+  id_restart = fms_register_restart_field(CS%fileObj, CS%restartfile, name, f_ptr, G%Domain%mpp_domain, position=pos)
 
 end subroutine register_restart_field_0d
 
