@@ -2476,7 +2476,7 @@ subroutine finish_MOM_initialization(Time, dirs, CS, restart_CSp)
     allocate(z_interface(SZI_(G),SZJ_(G),SZK_(G)+1))
     call find_eta(CS%h, CS%tv, GV%g_Earth, G, GV, z_interface)
 
-    call register_restart_field(z_interface, "eta", .true., restart_CSp_tmp, G, &
+    call register_restart_field(z_interface, "eta", .true., G, restart_CSp_tmp,  &
                                 "Interface heights", "meter", z_grid='i')
     call save_restart(dirs%output_directory, Time, G, &
                       restart_CSp_tmp, filename=CS%IC_file, GV=GV)
@@ -2575,23 +2575,23 @@ subroutine set_restart_fields(GV, param_file, CS, restart_CSp)
   flux_units = get_flux_units(GV)
 
   if (associated(CS%tv%T)) &
-    call register_restart_field(CS%tv%T, "Temp", .true., restart_CSp, CS%G, &
+    call register_restart_field(CS%tv%T, "Temp", .true., CS%G, restart_CSp, &
                                 "Potential Temperature", "degC")
   if (associated(CS%tv%S)) &
-    call register_restart_field(CS%tv%S, "Salt", .true., restart_CSp, CS%G, &
+    call register_restart_field(CS%tv%S, "Salt", .true., CS%G,restart_CSp, &
                                 "Salinity", "PPT")
 
-  call register_restart_field(CS%h, "h", .true., restart_CSp, CS%G, &
+  call register_restart_field(CS%h, "h", .true., CS%G, restart_CSp, &
                               "Layer Thickness", thickness_units)
 
   call register_restart_field(CS%u, "u", .true., restart_CSp, CS%G, &
                               "Zonal velocity", "m s-1", hor_grid='Cu')
 
-  call register_restart_field(CS%v, "v", .true., restart_CSp, CS%G, &
+  call register_restart_field(CS%v, "v", .true., CS%G,restart_CSp, &
                               "Meridional velocity", "m s-1", hor_grid='Cv')
 
   if (associated(CS%tv%frazil)) &
-    call register_restart_field(CS%tv%frazil, "frazil", .false., restart_CSp, CS%G, &
+    call register_restart_field(CS%tv%frazil, "frazil", .false., CS%G, restart_CSp,  &
                                 "Frazil heat flux into ocean", "J m-2")
 
   if (CS%interp_p_surf) then
@@ -2599,14 +2599,14 @@ subroutine set_restart_fields(GV, param_file, CS, restart_CSp)
                                 "Previous ocean surface pressure", "Pa")
   endif
 
-  call register_restart_field(CS%ave_ssh_ibc, "ave_ssh", .false., restart_CSp, CS%G, &
+  call register_restart_field(CS%ave_ssh_ibc, "ave_ssh", .false., CS%G, restart_CSp,  &
                               "Time average sea surface height", "meter")
 
   ! hML is needed when using the ice shelf module
   call get_param(param_file, '', "ICE_SHELF", use_ice_shelf, default=.false., &
                  do_not_log=.true.)
   if (use_ice_shelf .and. associated(CS%Hml)) then
-     call register_restart_field(CS%Hml, "hML", .false., restart_CSp, CS%G, &
+     call register_restart_field(CS%Hml, "hML", .false., CS%G, restart_CSp, &
                                  "Mixed layer thickness", "meter")
   endif
 
