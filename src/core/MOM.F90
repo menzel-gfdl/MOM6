@@ -2109,7 +2109,7 @@ subroutine initialize_MOM(Time, Time_init, param_file, dirs, CS, restart_CSp, &
            CS%mixedlayer_restrat_CSp, restart_CSp)
 
   if (associated(CS%OBC)) &
-    call open_boundary_register_restarts(dg%HI, GV, G, CS%OBC, restart_CSp)
+    call open_boundary_register_restarts(dg%HI, G, GV, CS%OBC, restart_CSp)
 
   call callTree_waypoint("restart registration complete (initialize_MOM)")
 
