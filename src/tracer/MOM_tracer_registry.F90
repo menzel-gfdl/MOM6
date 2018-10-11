@@ -127,7 +127,7 @@ end type tracer_registry_type
 contains
 
 !> This subroutine registers a tracer to be advected and laterally diffused.
-subroutine register_tracer(tr_ptr, Reg, param_file, HI, GV, name, longname, units, &
+subroutine register_tracer(tr_ptr, Reg, param_file, HI, GV, G, name, longname, units, &
                            cmor_name, cmor_units, cmor_longname, tr_desc, &
                            OBC_inflow, OBC_in_u, OBC_in_v, ad_x, ad_y, df_x, df_y, &
                            ad_2d_x, ad_2d_y, df_2d_x, df_2d_y, advection_xy, registry_diags, &
@@ -136,6 +136,7 @@ subroutine register_tracer(tr_ptr, Reg, param_file, HI, GV, name, longname, unit
                            restart_CS, mandatory)
   type(hor_index_type),           intent(in)    :: HI           !< horizontal index type
   type(verticalGrid_type),        intent(in)    :: GV           !< ocean vertical grid structure
+  type(ocean_grid_type),          intent(in)    :: G            !< ocean horizontal grid structure
   type(tracer_registry_type),     pointer       :: Reg          !< pointer to the tracer registry
   real, dimension(SZI_(HI),SZJ_(HI),SZK_(GV)), &
                                   target        :: tr_ptr       !< target or pointer to the tracer array
@@ -294,7 +295,7 @@ subroutine register_tracer(tr_ptr, Reg, param_file, HI, GV, name, longname, unit
     ! Register this tracer to be read from and written to restart files.
     mand = .true. ; if (present(mandatory)) mand = mandatory
 
-    call register_restart_field(tr_ptr, Tr%name, mand, restart_CS, &
+    call register_restart_field(tr_ptr, Tr%name, mand, G, restart_CS, &
                                 longname=Tr%longname, units=Tr%units)
   endif ; endif
 
