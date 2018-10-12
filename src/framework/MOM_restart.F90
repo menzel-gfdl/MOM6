@@ -302,7 +302,7 @@ subroutine register_restart_field_4d(f_ptr, name, mandatory, G, CS, longname, un
   pos = get_hor_grid_position(vd%hor_grid)
  
 !  call register_restart_field_ptr4d(f_ptr, vd, mandatory, CS)
-  id_restart = fms_register_restart_field(CS%fileObj,CS%restartfile,name,f_ptr,G%Domain%mpp_domain, position=pos)
+  id_restart = fms_register_restart_field(CS%fileObj, CS%restartfile, name, f_ptr, G%Domain%mpp_domain, position=pos)
 
 end subroutine register_restart_field_4d
 
