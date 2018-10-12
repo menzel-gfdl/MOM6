@@ -55,7 +55,7 @@ end type DOME_tracer_CS
 contains
 
 !> Register tracer fields and subroutines to be used with MOM.
-function register_DOME_tracer(HI, GV, param_file, G, CS, tr_Reg, restart_CS,G)
+function register_DOME_tracer(HI, GV, param_file, G, CS, tr_Reg, restart_CS)
   type(hor_index_type),       intent(in) :: HI   !< A horizontal index type structure.
   type(verticalGrid_type),    intent(in) :: GV   !< The ocean's vertical grid structure
   type(param_file_type),      intent(in) :: param_file !< A structure to parse for run-time parameters
