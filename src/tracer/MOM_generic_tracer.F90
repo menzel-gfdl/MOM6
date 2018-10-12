@@ -201,7 +201,7 @@ contains
                               restart_CS=restart_CS, mandatory=.not.CS%tracers_may_reinit)
        else
          call register_restart_field(tr_ptr, g_tracer_name, .not.CS%tracers_may_reinit, G, &
-                                     restart_CS, CS%G, longname=longname, units=units)
+                                     restart_CS, longname=longname, units=units)
        endif
 
        !traverse the linked list till hit NULL
