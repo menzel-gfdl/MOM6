@@ -169,13 +169,13 @@ function register_OCMIP2_CFC(HI, GV, param_file, G, CS, tr_Reg, restart_CS)
   ! the registration calls.  Curses on the designers and implementers of F90.
   tr_ptr => CS%CFC11
   ! Register CFC11 for horizontal advection, diffusion, and restarts.
-  call register_tracer(tr_ptr, tr_Reg, param_file, G, HI, GV, &
+  call register_tracer(tr_ptr, tr_Reg, param_file, HI, GV, G, &
                        tr_desc=CS%CFC11_desc, registry_diags=.true., &
                        flux_units=flux_units, &
                        restart_CS=restart_CS, mandatory=.not.CS%tracers_may_reinit)
   ! Do the same for CFC12
   tr_ptr => CS%CFC12
-  call register_tracer(tr_ptr, Tr_Reg, param_file, G, HI, GV, &
+  call register_tracer(tr_ptr, Tr_Reg, param_file, HI, GV, G, &
                        tr_desc=CS%CFC12_desc, registry_diags=.true., &
                        flux_units=flux_units, &
                        restart_CS=restart_CS, mandatory=.not.CS%tracers_may_reinit)
