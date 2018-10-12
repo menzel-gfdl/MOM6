@@ -444,9 +444,9 @@ subroutine register_ctrl_forcing_restarts(G, param_file, CS, restart_CS)
     call safe_alloc_ptr(CS%heat_0,isd,ied,jsd,jed) ; CS%heat_0(:,:) = 0.0
     call safe_alloc_ptr(CS%precip_0,isd,ied,jsd,jed) ; CS%precip_0(:,:) = 0.0
     vd = var_desc("Ctrl_heat","W m-2","Control Integrative Heating",z_grid='1')
-    call register_restart_field(CS%heat_0, vd, .false., G, restart_CS)
+    call register_restart_field(CS%heat_0, vd%name, .false., G, restart_CS)
     vd = var_desc("Ctrl_precip","kg m-2 s-1","Control Integrative Precipitation",z_grid='1')
-    call register_restart_field(CS%precip_0, vd, .false., G, restart_CS)
+    call register_restart_field(CS%precip_0, vd%name, .false., G, restart_CS)
   endif
 
   if (CS%num_cycle > 0) then
@@ -456,24 +456,24 @@ subroutine register_ctrl_forcing_restarts(G, param_file, CS, restart_CS)
     call safe_alloc_ptr(CS%precip_cyc,isd,ied,jsd,jed,CS%num_cycle) ; CS%precip_cyc(:,:,:) = 0.0
     vd = var_desc("Ctrl_heat_cycle", "W m-2","Cyclical Control Heating",&
                   z_grid='1', t_grid=period_str)
-    call register_restart_field(CS%heat_cyc, vd, .false., G, restart_CS)
+    call register_restart_field(CS%heat_cyc, vd%name, .false., G, restart_CS)
     vd = var_desc("Ctrl_precip_cycle","kg m-2 s-1","Cyclical Control Precipitation", &
                   z_grid='1', t_grid=period_str)
-    call register_restart_field(CS%precip_cyc, vd, .false., G, restart_CS)
+    call register_restart_field(CS%precip_cyc, vd%name, .false., G, restart_CS)
 
     call safe_alloc_ptr(CS%avg_time,CS%num_cycle) ; CS%avg_time(:) = 0.0
     vd = var_desc("avg_time","sec","Cyclical accumulated averaging time", &
                   '1',z_grid='1',t_grid=period_str)
-    call register_restart_field(CS%avg_time, vd, .false., G, restart_CS)
+    call register_restart_field(CS%avg_time, vd%name, .false., G, restart_CS)
 
     call safe_alloc_ptr(CS%avg_SST_anom,isd,ied,jsd,jed,CS%num_cycle) ; CS%avg_SST_anom(:,:,:) = 0.0
     call safe_alloc_ptr(CS%avg_SSS_anom,isd,ied,jsd,jed,CS%num_cycle) ; CS%avg_SSS_anom(:,:,:) = 0.0
     vd = var_desc("avg_SST_anom","deg C","Cyclical average SST Anomaly", &
                   z_grid='1',t_grid=period_str)
-    call register_restart_field(CS%avg_SST_anom, vd, .false., G, restart_CS)
+    call register_restart_field(CS%avg_SST_anom, vd%name, .false., G, restart_CS)
     vd = var_desc("avg_SSS_anom","g kg-1","Cyclical average SSS Anomaly", &
                   z_grid='1',t_grid=period_str)
-    call register_restart_field(CS%avg_SSS_anom, vd, .false., G, restart_CS)
+    call register_restart_field(CS%avg_SSS_anom, vd%name, .false., G, restart_CS)
   endif
 
 end subroutine register_ctrl_forcing_restarts
