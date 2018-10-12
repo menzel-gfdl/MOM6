@@ -894,7 +894,7 @@ logical function mixedlayer_restrat_init(Time, G, GV, param_file, diag, CS)
 end function mixedlayer_restrat_init
 
 !> Allocate and register fields in the mixed layer restratification structure for restarts
-subroutine mixedlayer_restrat_register_restarts(HI, param_file, C, CS, restart_CS)
+subroutine mixedlayer_restrat_register_restarts(HI, param_file, G, CS, restart_CS)
   ! Arguments
   type(hor_index_type),        intent(in)    :: HI         !< Horizontal index structure
   type(param_file_type),       intent(in)    :: param_file !< Parameter file to parse
@@ -924,14 +924,14 @@ subroutine mixedlayer_restrat_register_restarts(HI, param_file, C, CS, restart_C
     allocate(CS%MLD_filtered(HI%isd:HI%ied,HI%jsd:HI%jed)) ; CS%MLD_filtered(:,:) = 0.
     vd = var_desc("MLD_MLE_filtered","m","Time-filtered MLD for use in MLE", &
                   hor_grid='h', z_grid='1')
-    call register_restart_field(CS%MLD_filtered, vd, G, .false., restart_CS)
+    call register_restart_field(CS%MLD_filtered, vd%name, G, .false., restart_CS)
   endif
   if (CS%MLE_MLD_decay_time2>0.) then
     ! CS%MLD_filtered_slow is used to keep a running mean of the PBL's seasonal or winter MLD.
     allocate(CS%MLD_filtered_slow(HI%isd:HI%ied,HI%jsd:HI%jed)) ; CS%MLD_filtered_slow(:,:) = 0.
     vd = var_desc("MLD_MLE_filtered_slow","m","c Slower time-filtered MLD for use in MLE", &
                   hor_grid='h', z_grid='1')
-    call register_restart_field(CS%MLD_filtered_slow, vd, G, .false., restart_CS)
+    call register_restart_field(CS%MLD_filtered_slow, vd%name, G, .false., restart_CS)
   endif
 
 end subroutine mixedlayer_restrat_register_restarts
