@@ -2104,7 +2104,7 @@ subroutine initialize_MOM(Time, Time_init, param_file, dirs, CS, restart_CSp, &
                             CS%tracer_Reg, restart_CSp)
 
   call MEKE_alloc_register_restart(dG%HI, param_file, G, CS%MEKE, restart_CSp)
-  call set_visc_register_restarts(dG%HI, GV, param_file, G, CS%visc, restart_CSp)
+  call set_visc_register_restarts(dG%HI, GV, G, param_file,  CS%visc, restart_CSp)
   call mixedlayer_restrat_register_restarts(dG%HI, param_file, G, &
            CS%mixedlayer_restrat_CSp, restart_CSp)
 
@@ -2584,10 +2584,10 @@ subroutine set_restart_fields(GV, param_file, CS, restart_CSp)
   call register_restart_field(CS%h, "h", .true., CS%G, restart_CSp, &
                               "Layer Thickness", thickness_units)
 
-  call register_restart_field(CS%u, "u", .true., restart_CSp, CS%G, &
+  call register_restart_field(CS%u, "u", .true.,  CS%G, restart_CSp, &
                               "Zonal velocity", "m s-1", hor_grid='Cu')
 
-  call register_restart_field(CS%v, "v", .true., CS%G,restart_CSp, &
+  call register_restart_field(CS%v, "v", .true., CS%G, restart_CSp, &
                               "Meridional velocity", "m s-1", hor_grid='Cv')
 
   if (associated(CS%tv%frazil)) &
@@ -2595,7 +2595,7 @@ subroutine set_restart_fields(GV, param_file, CS, restart_CSp)
                                 "Frazil heat flux into ocean", "J m-2")
 
   if (CS%interp_p_surf) then
-    call register_restart_field(CS%p_surf_prev, "p_surf_prev", .false., restart_CSp, CS%G, &
+    call register_restart_field(CS%p_surf_prev, "p_surf_prev", .false., CS%G, restart_CSp,&
                                 "Previous ocean surface pressure", "Pa")
   endif
 

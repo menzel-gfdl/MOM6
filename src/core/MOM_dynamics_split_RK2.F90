@@ -935,7 +935,7 @@ subroutine register_restarts_dyn_split_RK2(HI, GV, G, param_file, CS, restart_CS
   call register_restart_field(uh, vd%name, .false., G, restart_CS)
 
   vd = var_desc("vh",flux_units,"Meridional thickness flux",'v','L')
-  call register_restart_field(vh, vd, .false., G, restart_CS)
+  call register_restart_field(vh, vd%name, .false., G, restart_CS)
 
   vd = var_desc("diffu","m s-2","Zonal horizontal viscous acceleration",'u','L')
   call register_restart_field(CS%diffu, vd%name, .false., G, restart_CS)
