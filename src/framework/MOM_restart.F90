@@ -271,7 +271,7 @@ end subroutine register_restart_field_ptr0d
 ! The following provide alternate interfaces to register restarts.
 
 !> Register a 4-d field for restarts, providing the metadata as individual arguments
-subroutine register_restart_field_4d(f_ptr, name, mandatory,G, CS, longname, units, &
+subroutine register_restart_field_4d(f_ptr, name, mandatory, G, CS, longname, units, &
                                      hor_grid, z_grid, t_grid)
   real, dimension(:,:,:,:), &
                       target, intent(in) :: f_ptr     !< A pointer to the field to be read or written
@@ -302,7 +302,7 @@ subroutine register_restart_field_4d(f_ptr, name, mandatory,G, CS, longname, uni
   pos = get_hor_grid_position(vd%hor_grid)
  
 !  call register_restart_field_ptr4d(f_ptr, vd, mandatory, CS)
-id_restart = fms_register_restart_field(CS%fileObj,CS%restartfile,name,f_ptr,G%Domain%mpp_domain, position=pos)
+  id_restart = fms_register_restart_field(CS%fileObj,CS%restartfile,name,f_ptr,G%Domain%mpp_domain, position=pos)
 
 end subroutine register_restart_field_4d
 
