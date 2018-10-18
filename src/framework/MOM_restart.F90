@@ -20,6 +20,7 @@ use MOM_verticalGrid, only : verticalGrid_type
 use mpp_mod,         only:  mpp_chksum,mpp_pe
 use mpp_io_mod,      only:  mpp_attribute_exist, mpp_get_atts
 use fms_io_mod, only: fms_register_restart_field => register_restart_field, restart_file_type
+use fms_io_mod, only: fms_write_data => write_data
 
 implicit none ; private
 
@@ -939,27 +940,53 @@ subroutine save_restart(directory, time, G, CS, time_stamped, filename, GV)
 
     !Prepare the checksum of the restart fields to be written to restart files
     call get_checksum_loop_ranges(G, pos, isL, ieL, jsL, jeL)
+   ! do m=start_var,next_var-1
+   !   if (associated(CS%var_ptr3d(m)%p)) then
+   !     check_val(m-start_var+1,1) = mpp_chksum(CS%var_ptr3d(m)%p(isL:ieL,jsL:jeL,:))
+   !   elseif (associated(CS%var_ptr2d(m)%p)) then
+   !     check_val(m-start_var+1,1) = mpp_chksum(CS%var_ptr2d(m)%p(isL:ieL,jsL:jeL))
+   !   elseif (associated(CS%var_ptr4d(m)%p)) then
+   !     check_val(m-start_var+1,1) = mpp_chksum(CS%var_ptr4d(m)%p(isL:ieL,jsL:jeL,:,:))
+   !   elseif (associated(CS%var_ptr1d(m)%p)) then
+   !     check_val(m-start_var+1,1) = mpp_chksum(CS%var_ptr1d(m)%p)
+   !   elseif (associated(CS%var_ptr0d(m)%p)) then
+   !     check_val(m-start_var+1,1) = mpp_chksum(CS%var_ptr0d(m)%p,pelist=(/mpp_pe()/))
+   !   endif
+   ! enddo
+    
     do m=start_var,next_var-1
-      if (associated(CS%var_ptr3d(m)%p)) then
-        check_val(m-start_var+1,1) = mpp_chksum(CS%var_ptr3d(m)%p(isL:ieL,jsL:jeL,:))
-      elseif (associated(CS%var_ptr2d(m)%p)) then
-        check_val(m-start_var+1,1) = mpp_chksum(CS%var_ptr2d(m)%p(isL:ieL,jsL:jeL))
-      elseif (associated(CS%var_ptr4d(m)%p)) then
-        check_val(m-start_var+1,1) = mpp_chksum(CS%var_ptr4d(m)%p(isL:ieL,jsL:jeL,:,:))
-      elseif (associated(CS%var_ptr1d(m)%p)) then
-        check_val(m-start_var+1,1) = mpp_chksum(CS%var_ptr1d(m)%p)
-      elseif (associated(CS%var_ptr0d(m)%p)) then
-        check_val(m-start_var+1,1) = mpp_chksum(CS%var_ptr0d(m)%p,pelist=(/mpp_pe()/))
+      if (associated(CS%fileObj%p0dr(fileObj%var(m)%siz(4), m)%p) then
+        check_val(m-start_var+1,1) = mpp_chksum(CS%fileObj%p0dr(fileObj%var(m)%siz(4), m)%p, pelist=(/mpp_pe()/))
+      elseif (associated(CS%fileObj%p1dr(fileObj%var(m)%siz(4), m)%p) then
+        check_val(m-start_var+1,1) = mpp_chksum(CS%fileObj%p0dr(fileObj%var(m)%siz(4), m)%p)
+      elseif (associated(CS%fileObj%p2dr(fileObj%var(m)%siz(4), m)%p) then
+        check_val(m-start_var+1,1) = mpp_chksum(CS%fileObj%p2dr(fileObj%var(m)%siz(4), m)%p(isL:ieL,jsL:jeL))
+      elseif (associated(CS%fileObj%p3dr(fileObj%var(m)%siz(4), m)%p) then
+        check_val(m-start_var+1,1) = mpp_chksum(CS%fileObj%p3dr(fileObj%var(m)%siz(4), m)%p(isL:ieL,jsL:jeL,:))
+      elseif (associated(CS%fileObj%p4dr(fileObj%var(m)%siz(4), m)%p) then
+        check_val(m-start_var+1,1) = mpp_chksum(CS%fileObj%p4dr(fileObj%var(m)%siz(4), m)%p(isL:ieL,jsL:jeL,:,:))
+      elseif (associated(CS%fileObj%p2dr8(fileObj%var(m)%siz(4), m)%p) then
+        check_val(m-start_var+1,1) = mpp_chksum(CS%fileObj%p2dr8(fileObj%var(m)%siz(4), m)%p(isL:ieL,jsL:jeL))
+      elseif (associated(CS%fileObj%p3dr8(fileObj%var(m)%siz(4), m)%p) then
+        check_val(m-start_var+1,1) = mpp_chksum(CS%fileObj%p3dr8(fileObj%var(m)%siz(4), m)%p(isL:ieL,jsL:jeL,:))
+      elseif (associated(CS%fileObj%p0di(fileObj%var(m)%siz(4), m)%p) then
+        check_val(m-start_var+1,1) = mpp_chksum(CS%fileObj%p0di(fileObj%var(m)%siz(4), m)%p, pelist=(/mpp_pe()/))
+      elseif (associated(CS%fileObj%p1di(fileObj%var(m)%siz(4), m)%p) then
+        check_val(m-start_var+1,1) = mpp_chksum(CS%fileObj%p1di(fileObj%var(m)%siz(4), m)%p)
+      elseif (associated(CS%fileObj%p2di(fileObj%var(m)%siz(4), m)%p) then
+        check_val(m-start_var+1,1) = mpp_chksum(CS%fileObj%p2di(fileObj%var(m)%siz(4), m)%p(isL:ieL,jsL:jeL))
+      elseif (associated(CS%fileObj%p3di(fileObj%var(m)%siz(4), m)%p) then
+        check_val(m-start_var+1,1) = mpp_chksum(CS%fileObj%p3di(fileObj%var(m)%siz(4), m)%p(isL:ieL,jsL:jeL,:))
       endif
     enddo
 
-    if (CS%parallel_restartfiles) then
-      call create_file(unit, trim(restartpath), vars, (next_var-start_var), &
-                       fields, MULTIPLE, G=G, GV=GV, checksums=check_val)
-    else
-      call create_file(unit, trim(restartpath), vars, (next_var-start_var), &
-                       fields, SINGLE_FILE, G=G, GV=GV, checksums=check_val)
-    endif
+    !if (CS%parallel_restartfiles) then
+    !  call create_file(unit, trim(restartpath), vars, (next_var-start_var), &
+    !                   fields, MULTIPLE, G=G, GV=GV, checksums=check_val)
+    !else
+    !  call create_file(unit, trim(restartpath), vars, (next_var-start_var), &
+    !                  fields, SINGLE_FILE, G=G, GV=GV, checksums=check_val)
+    !endif
 
     do m=start_var,next_var-1
 
