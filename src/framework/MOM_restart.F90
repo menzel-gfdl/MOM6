@@ -21,6 +21,8 @@ use mpp_mod,         only:  mpp_chksum,mpp_pe
 use mpp_io_mod,      only:  mpp_attribute_exist, mpp_get_atts
 use fms_io_mod, only: fms_register_restart_field => register_restart_field, restart_file_type
 use fms_io_mod, only: fms_write_data => write_data
+use fms_io_mod, only: fms_save_restart => save_restart
+
 
 implicit none ; private
 
@@ -92,6 +94,7 @@ type, public :: MOM_restart_CS ; private
   type(p4d), pointer :: var_ptr4d(:) => NULL()
   !!@}
   integer :: max_fields !< The maximum number of restart fields
+
   type(restart_file_type) :: fileObj
 end type MOM_restart_CS
 
@@ -428,13 +431,10 @@ subroutine register_restart_field_0d(f_ptr, name, mandatory, G, CS, longname, un
                 z_grid='1', t_grid=t_grid)
 
   pos = get_hor_grid_position(vd%hor_grid)
- 
 !  call register_restart_field_ptr0d(f_ptr, vd, mandatory, CS)
-! need arguments for hor_grid
   id_restart = fms_register_restart_field(CS%fileObj, CS%restartfile, name, f_ptr, G%Domain%mpp_domain, position=pos)
 
 end subroutine register_restart_field_0d
-
 
 !> query_initialized_name determines whether a named field has been successfully
 !! read from a restart file yet.
@@ -789,6 +789,7 @@ function query_initialized_4d_name(f_ptr, name, CS) result(query_initialized)
 end function query_initialized_4d_name
 
 !> save_restart saves all registered variables to restart files.
+!> Wrapper for fms_io subroutine save_restart(fileObj, time_stamp, directory, append, time_level)
 subroutine save_restart(directory, time, G, CS, time_stamped, filename, GV)
   character(len=*),        intent(in)    :: directory !< The directory where the restart files
                                                   !! are to be written
@@ -827,6 +828,8 @@ subroutine save_restart(directory, time, G, CS, time_stamped, filename, GV)
   integer :: length
   integer(kind=8) :: check_val(CS%max_fields,1)
   integer :: isL, ieL, jsL, jeL, pos
+  character(len=64) :: time_stamp
+  character(len=64) :: ts
 
   if (.not.associated(CS)) call MOM_error(FATAL, "MOM_restart " // &
       "save_restart: Module must be initialized before it is used.")
@@ -844,6 +847,7 @@ subroutine save_restart(directory, time, G, CS, time_stamped, filename, GV)
   restart_time = time_type_to_real(time) / 86400.0
 
   restartname = trim(CS%restartfile)
+  time_stamp = ' '
   if (present(filename)) restartname = trim(filename)
   if (PRESENT(time_stamped)) then ; if (time_stamped) then
     call get_date(time,year,month,days,hour,minute,seconds)
@@ -854,18 +858,37 @@ subroutine save_restart(directory, time, G, CS, time_stamped, filename, GV)
     seconds = seconds + 60*minute + 3600*hour
     if (year <= 9999) then
       write(restartname,'("_Y",I4.4,"_D",I3.3,"_S",I5.5)') year, days, seconds
+      write(ts,'("_Y",I4.4,"_D",I3.3,"_S",I5.5)') year, days, seconds
     elseif (year <= 99999) then
       write(restartname,'("_Y",I5.5,"_D",I3.3,"_S",I5.5)') year, days, seconds
+      write(ts,'("_Y",I4.4,"_D",I3.3,"_S",I5.5)') year, days, seconds
     else
       write(restartname,'("_Y",I10.10,"_D",I3.3,"_S",I5.5)') year, days, seconds
+      write(ts,'("_Y",I4.4,"_D",I3.3,"_S",I5.5)') year, days, seconds
     endif
     restartname = trim(CS%restartfile)//trim(restartname)
+    time_stamp = trim(ts)
   endif ; endif
+
+  !query fms_io if there is a filename_appendix (for ensemble runs)
+  call get_filename_appendix(filename_appendix)
+  if (len_trim(filename_appendix) > 0) then
+     length = len_trim(restartname)
+     if (restartname(length-2:length) == '.nc') then
+        restartname = restartname(1:length-3)//'.'//trim(filename_appendix)//'.nc'
+     else
+        restartname = restartname(1:length)  //'.'//trim(filename_appendix)
+     endif
+  endif
+
+
+  call fms_save_restart(CS%fileObj, directory=directory)
 
   next_var = 1
   do while (next_var <= CS%novars )
     start_var = next_var
     size_in_file = 8*(2*G%Domain%niglobal+2*G%Domain%njglobal+2*nz+1000)
+    restartpath = trim(directory)// trim(restartname)
 
     do m=start_var,CS%novars
       call query_vardesc(CS%restart_field(m)%vars, hor_grid=hor_grid, &
@@ -898,18 +921,17 @@ subroutine save_restart(directory, time, G, CS, time_stamped, filename, GV)
     next_var = m
 
     !query fms_io if there is a filename_appendix (for ensemble runs)
-    call get_filename_appendix(filename_appendix)
-    if (len_trim(filename_appendix) > 0) then
-      length = len_trim(restartname)
-      if (restartname(length-2:length) == '.nc') then
-        restartname = restartname(1:length-3)//'.'//trim(filename_appendix)//'.nc'
-      else
-        restartname = restartname(1:length)  //'.'//trim(filename_appendix)
-      endif
-    endif
+  !  call get_filename_appendix(filename_appendix)
+  !  if (len_trim(filename_appendix) > 0) then
+  !    length = len_trim(restartname)
+ !     if (restartname(length-2:length) == '.nc') then
+  !      restartname = restartname(1:length-3)//'.'//trim(filename_appendix)//'.nc'
+  !    else
+  !      restartname = restartname(1:length)  //'.'//trim(filename_appendix)
+  !    endif
+  !  endif
 
-    restartpath = trim(directory)// trim(restartname)
-
+   
     if (num_files < 10) then
       write(suffix,'("_",I1)') num_files
     else
@@ -939,7 +961,7 @@ subroutine save_restart(directory, time, G, CS, time_stamped, filename, GV)
     end select
 
     !Prepare the checksum of the restart fields to be written to restart files
-    call get_checksum_loop_ranges(G, pos, isL, ieL, jsL, jeL)
+   ! call get_checksum_loop_ranges(G, pos, isL, ieL, jsL, jeL)
    ! do m=start_var,next_var-1
    !   if (associated(CS%var_ptr3d(m)%p)) then
    !     check_val(m-start_var+1,1) = mpp_chksum(CS%var_ptr3d(m)%p(isL:ieL,jsL:jeL,:))
@@ -954,32 +976,6 @@ subroutine save_restart(directory, time, G, CS, time_stamped, filename, GV)
    !   endif
    ! enddo
     
-    do m=start_var,next_var-1
-      if (associated(CS%fileObj%p0dr(fileObj%var(m)%siz(4), m)%p) then
-        check_val(m-start_var+1,1) = mpp_chksum(CS%fileObj%p0dr(fileObj%var(m)%siz(4), m)%p, pelist=(/mpp_pe()/))
-      elseif (associated(CS%fileObj%p1dr(fileObj%var(m)%siz(4), m)%p) then
-        check_val(m-start_var+1,1) = mpp_chksum(CS%fileObj%p0dr(fileObj%var(m)%siz(4), m)%p)
-      elseif (associated(CS%fileObj%p2dr(fileObj%var(m)%siz(4), m)%p) then
-        check_val(m-start_var+1,1) = mpp_chksum(CS%fileObj%p2dr(fileObj%var(m)%siz(4), m)%p(isL:ieL,jsL:jeL))
-      elseif (associated(CS%fileObj%p3dr(fileObj%var(m)%siz(4), m)%p) then
-        check_val(m-start_var+1,1) = mpp_chksum(CS%fileObj%p3dr(fileObj%var(m)%siz(4), m)%p(isL:ieL,jsL:jeL,:))
-      elseif (associated(CS%fileObj%p4dr(fileObj%var(m)%siz(4), m)%p) then
-        check_val(m-start_var+1,1) = mpp_chksum(CS%fileObj%p4dr(fileObj%var(m)%siz(4), m)%p(isL:ieL,jsL:jeL,:,:))
-      elseif (associated(CS%fileObj%p2dr8(fileObj%var(m)%siz(4), m)%p) then
-        check_val(m-start_var+1,1) = mpp_chksum(CS%fileObj%p2dr8(fileObj%var(m)%siz(4), m)%p(isL:ieL,jsL:jeL))
-      elseif (associated(CS%fileObj%p3dr8(fileObj%var(m)%siz(4), m)%p) then
-        check_val(m-start_var+1,1) = mpp_chksum(CS%fileObj%p3dr8(fileObj%var(m)%siz(4), m)%p(isL:ieL,jsL:jeL,:))
-      elseif (associated(CS%fileObj%p0di(fileObj%var(m)%siz(4), m)%p) then
-        check_val(m-start_var+1,1) = mpp_chksum(CS%fileObj%p0di(fileObj%var(m)%siz(4), m)%p, pelist=(/mpp_pe()/))
-      elseif (associated(CS%fileObj%p1di(fileObj%var(m)%siz(4), m)%p) then
-        check_val(m-start_var+1,1) = mpp_chksum(CS%fileObj%p1di(fileObj%var(m)%siz(4), m)%p)
-      elseif (associated(CS%fileObj%p2di(fileObj%var(m)%siz(4), m)%p) then
-        check_val(m-start_var+1,1) = mpp_chksum(CS%fileObj%p2di(fileObj%var(m)%siz(4), m)%p(isL:ieL,jsL:jeL))
-      elseif (associated(CS%fileObj%p3di(fileObj%var(m)%siz(4), m)%p) then
-        check_val(m-start_var+1,1) = mpp_chksum(CS%fileObj%p3di(fileObj%var(m)%siz(4), m)%p(isL:ieL,jsL:jeL,:))
-      endif
-    enddo
-
     !if (CS%parallel_restartfiles) then
     !  call create_file(unit, trim(restartpath), vars, (next_var-start_var), &
     !                   fields, MULTIPLE, G=G, GV=GV, checksums=check_val)
@@ -988,27 +984,31 @@ subroutine save_restart(directory, time, G, CS, time_stamped, filename, GV)
     !                  fields, SINGLE_FILE, G=G, GV=GV, checksums=check_val)
     !endif
 
-    do m=start_var,next_var-1
+    !do m=start_var,next_var-1
+    !  call fms_write_data(restartname, fields(m-start_var+1), CS%, G%Domain%mpp_domain, position=pos) 
 
-      if (associated(CS%var_ptr3d(m)%p)) then
-        call write_field(unit,fields(m-start_var+1), G%Domain%mpp_domain, &
-                         CS%var_ptr3d(m)%p, restart_time)
-      elseif (associated(CS%var_ptr2d(m)%p)) then
-        call write_field(unit,fields(m-start_var+1), G%Domain%mpp_domain, &
-                         CS%var_ptr2d(m)%p, restart_time)
-      elseif (associated(CS%var_ptr4d(m)%p)) then
-        call write_field(unit,fields(m-start_var+1), G%Domain%mpp_domain, &
-                         CS%var_ptr4d(m)%p, restart_time)
-      elseif (associated(CS%var_ptr1d(m)%p)) then
-        call write_field(unit, fields(m-start_var+1), CS%var_ptr1d(m)%p, &
-                         restart_time)
-      elseif (associated(CS%var_ptr0d(m)%p)) then
-        call write_field(unit, fields(m-start_var+1), CS%var_ptr0d(m)%p, &
-                         restart_time)
-      endif
-    enddo
+    !  if (associated(CS%var_ptr3d(m)%p)) then
+    !    call write_field(unit,fields(m-start_var+1), G%Domain%mpp_domain, &
+     !                    CS%var_ptr3d(m)%p, restart_time)
+    !  elseif (associated(CS%var_ptr2d(m)%p)) then
+     !   call write_field(unit,fields(m-start_var+1), G%Domain%mpp_domain, &
+    !                     CS%var_ptr2d(m)%p, restart_time)
+     ! elseif (associated(CS%var_ptr4d(m)%p)) then
+     !   call write_field(unit,fields(m-start_var+1), G%Domain%mpp_domain, &
+     !                    CS%var_ptr4d(m)%p, restart_time)
+     ! elseif (associated(CS%var_ptr1d(m)%p)) then
+     !   call write_field(unit, fields(m-start_var+1), CS%var_ptr1d(m)%p, &
+     !                    restart_time)
+     ! elseif (associated(CS%var_ptr0d(m)%p)) then
+     !   call write_field(unit, fields(m-start_var+1), CS%var_ptr0d(m)%p, &
+      !                   restart_time)
+     ! endif
+    !enddo
 
-    call close_file(unit)
+    
+    !call fms_save_restart(fileObj, time_stamp, directory, append, time_level)
+  
+    !call close_file(unit)
 
     num_files = num_files+1
 
@@ -1369,7 +1369,7 @@ function open_restart_units(filename, directory, G, CS, units, file_paths, &
       if (num_restart > 0) err = 1 ! Avoid going through the file list twice.
       do while (err == 0)
         restartname = trim(CS%restartfile)
-
+    
        !query fms_io if there is a filename_appendix (for ensemble runs)
        call get_filename_appendix(filename_appendix)
        if (len_trim(filename_appendix) > 0) then
