@@ -660,10 +660,10 @@ program MOM_main
   call callTree_waypoint("End MOM_main")
   call diag_mediator_end(Time, diag, end_diag_manager=.true.)
   call cpu_clock_end(termClock)
-
+  ! wrapper routines for fms_io_exit and fms_io_end
   call io_infra_end ; call MOM_infra_end
-
+  
   call MOM_end(MOM_CSp)
   if (use_ice_shelf) call ice_shelf_end(ice_shelf_CSp)
-
+ 
 end program MOM_main
