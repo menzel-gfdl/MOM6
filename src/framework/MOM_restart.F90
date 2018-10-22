@@ -22,6 +22,7 @@ use mpp_io_mod,      only:  mpp_attribute_exist, mpp_get_atts
 use fms_io_mod, only: fms_register_restart_field => register_restart_field, restart_file_type
 use fms_io_mod, only: fms_write_data => write_data
 use fms_io_mod, only: fms_save_restart => save_restart
+              
 
 
 implicit none ; private
@@ -881,9 +882,6 @@ subroutine save_restart(directory, time, G, CS, time_stamped, filename, GV)
      endif
   endif
 
-
-  call fms_save_restart(CS%fileObj, directory=directory)
-
   next_var = 1
   do while (next_var <= CS%novars )
     start_var = next_var
@@ -943,6 +941,7 @@ subroutine save_restart(directory, time, G, CS, time_stamped, filename, GV)
     do m=start_var,next_var-1
       vars(m-start_var+1) = CS%restart_field(m)%vars
     enddo
+
     call query_vardesc(vars(1), t_grid=t_grid, hor_grid=hor_grid, caller="save_restart")
     t_grid = adjustl(t_grid)
     if (t_grid(1:1) /= 'p') &
@@ -976,15 +975,16 @@ subroutine save_restart(directory, time, G, CS, time_stamped, filename, GV)
    !   endif
    ! enddo
     
-    !if (CS%parallel_restartfiles) then
-    !  call create_file(unit, trim(restartpath), vars, (next_var-start_var), &
-    !                   fields, MULTIPLE, G=G, GV=GV, checksums=check_val)
-    !else
-    !  call create_file(unit, trim(restartpath), vars, (next_var-start_var), &
-    !                  fields, SINGLE_FILE, G=G, GV=GV, checksums=check_val)
-    !endif
+    if (CS%parallel_restartfiles) then
+      call create_file(unit,CS, trim(restartpath), vars, (next_var-start_var), &
+                       fields, MULTIPLE, G=G, GV=GV, checksums=check_val)
+    else
+      call create_file(unit,CS, trim(restartpath), vars, (next_var-start_var), &
+                      fields, SINGLE_FILE, G=G, GV=GV, checksums=check_val)
+    endif
+  
 
-    !do m=start_var,next_var-1
+    do m=start_var,next_var-1
     !  call fms_write_data(restartname, fields(m-start_var+1), CS%, G%Domain%mpp_domain, position=pos) 
 
     !  if (associated(CS%var_ptr3d(m)%p)) then
@@ -1003,13 +1003,11 @@ subroutine save_restart(directory, time, G, CS, time_stamped, filename, GV)
      !   call write_field(unit, fields(m-start_var+1), CS%var_ptr0d(m)%p, &
       !                   restart_time)
      ! endif
-    !enddo
-
-    
-    !call fms_save_restart(fileObj, time_stamp, directory, append, time_level)
+    enddo
   
     !call close_file(unit)
-
+    call fms_save_restart(fileObj, time_stamp, directory, append, time_level)
+  
     num_files = num_files+1
 
   enddo

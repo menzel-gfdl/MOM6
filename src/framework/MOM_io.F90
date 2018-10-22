@@ -17,6 +17,7 @@ use fms_mod,              only : write_version_number, open_namelist_file, check
 use fms_io_mod,           only : file_exist, field_size, read_data
 use fms_io_mod,           only : field_exists => field_exist, io_infra_end=>fms_io_exit
 use fms_io_mod,           only : get_filename_appendix => get_filename_appendix
+use fms_io_mod,           only : fms_register_restart_axis => register_restart_axis
 use mpp_domains_mod,      only : domain1d, domain2d, mpp_get_domain_components
 use mpp_domains_mod,      only : CENTER, CORNER, NORTH_FACE=>NORTH, EAST_FACE=>EAST
 use mpp_io_mod,           only : open_file => mpp_open, close_file => mpp_close
@@ -88,9 +89,10 @@ contains
 !> Routine creates a new NetCDF file.  It also sets up
 !! structures that describe this file and variables that will
 !! later be written to this file. Type for describing a variable, typically a tracer
-subroutine create_file(unit, filename, vars, novars, fields, threading, timeunit, G, dG, GV, checksums)
+subroutine create_file(unit,CS, filename, vars, novars, fields, threading, timeunit, G, dG, GV, checksums)
   integer,               intent(out)   :: unit       !< unit id of an open file or -1 on a
                                                      !! nonwriting PE with single file output
+  type(MOM_restart_CS),     pointer    :: CS        !< A pointer to a MOM_restart_CS object (intent in/out)
   character(len=*),      intent(in)    :: filename   !< full path to the file to create
   type(vardesc),         intent(in)    :: vars(:)    !< structures describing fields written to filename
   integer,               intent(in)    :: novars     !< number of fields written to filename
@@ -156,12 +158,13 @@ subroutine create_file(unit, filename, vars, novars, fields, threading, timeunit
   one_file = .true.
   if (domain_set) one_file = (thread == SINGLE_FILE)
 
-  if (one_file) then
-    call open_file(unit, filename, MPP_OVERWR, MPP_NETCDF, threading=thread)
-  else
-    call open_file(unit, filename, MPP_OVERWR, MPP_NETCDF, domain=Domain%mpp_domain)
-  endif
+!  if (one_file) then
+!    call open_file(unit, filename, MPP_OVERWR, MPP_NETCDF, threading=thread)
+!  else
+!    call open_file(unit, filename, MPP_OVERWR, MPP_NETCDF, domain=Domain%mpp_domain)
+!  endif
 
+ 
 ! Define the coordinates.
   do k=1,novars
     select case (vars(k)%hor_grid)
@@ -217,6 +220,7 @@ subroutine create_file(unit, filename, vars, novars, fields, threading, timeunit
         call MOM_error(WARNING, "MOM_io create_file: "//trim(vars(k)%name)//&
                         " has unrecognized t_grid "//trim(vars(k)%t_grid))
     end select
+  
   enddo
 
   if ((use_lath .or. use_lonh .or. use_latq .or. use_lonq)) then
@@ -232,12 +236,14 @@ subroutine create_file(unit, filename, vars, novars, fields, threading, timeunit
 ! domain, data, min). Otherwise if optional arguments are added to mpp_write_meta the compiler may
 ! (and in case of GNU does) get confused and crash.
   if (use_lath) &
-    call mpp_write_meta(unit, axis_lath, name="lath", units=y_axis_units, longname="Latitude", &
-                   cartesian='Y', domain = y_domain, data=gridLatT(jsg:jeg))
+    !call mpp_write_meta(unit, axis_lath, name="lath", units=y_axis_units, longname="Latitude", &
+    !              cartesian='Y', domain = y_domain, data=gridLatT(jsg:jeg))
 
+    call fms_register_restart_axis(CS%fileObj,filename,"lath",data=gridLatT(jsg:jeg),cartesian='Y',units=y_axis_units,longname="Latitude")
   if (use_lonh) &
-    call mpp_write_meta(unit, axis_lonh, name="lonh", units=x_axis_units, longname="Longitude", &
-                   cartesian='X', domain = x_domain, data=gridLonT(isg:ieg))
+    !call mpp_write_meta(unit, axis_lonh, name="lonh", units=x_axis_units, longname="Longitude", &
+    !               cartesian='X', domain = x_domain, data=gridLonT(isg:ieg))
+    call fms_register_restart_axis(CS%fileObj,filename,"lonh",data=gridLonT(isg:ieg),cartesian='X',units=x_axis_units,longname="Longitude")
 
   if (use_latq) &
     call mpp_write_meta(unit, axis_latq, name="latq", units=y_axis_units, longname="Latitude", &
@@ -273,9 +279,11 @@ subroutine create_file(unit, filename, vars, novars, fields, threading, timeunit
       write(time_units,'(es8.2," s")') timeunit
     endif
 
-    call mpp_write_meta(unit, axis_time, name="Time", units=time_units, longname="Time", cartesian='T')
+    !call mpp_write_meta(unit, axis_time, name="Time", units=time_units, longname="Time", cartesian='T')
+    call fms_register_restart_axis(CS%fileObj,filename,"Time",cartesian='T',units=time_units,longname="Time") 
   else
-    call mpp_write_meta(unit, axis_time, name="Time", units="days", longname="Time",cartesian= 'T')
+    !call mpp_write_meta(unit, axis_time, name="Time", units="days", longname="Time",cartesian= 'T')
+     call fms_register_restart_axis(CS%fileObj,filename,"Time",cartesian='T',units=time_units,longname="Time")
   endif ; endif
 
   if (use_periodic) then
@@ -348,9 +356,10 @@ end subroutine create_file
 !! does not find the file, a new file is created.  It also sets up
 !! structures that describe this file and the variables that will
 !! later be written to this file.
-subroutine reopen_file(unit, filename, vars, novars, fields, threading, timeunit, G, dG, GV)
+subroutine reopen_file(unit, CS, filename, vars, novars, fields, threading, timeunit, G, dG, GV)
   integer,               intent(out)   :: unit       !< unit id of an open file or -1 on a
                                                      !! nonwriting PE with single file output
+  type(MOM_restart_CS),       pointer  :: CS        !< A pointer to a MOM_restart_CS object (intent in/out)
   character(len=*),      intent(in)    :: filename   !< full path to the file to create
   type(vardesc),         intent(in)    :: vars(:)    !< structures describing fields written to filename
   integer,               intent(in)    :: novars     !< number of fields written to filename
@@ -384,7 +393,7 @@ subroutine reopen_file(unit, filename, vars, novars, fields, threading, timeunit
   inquire(file=check_name,EXIST=exists)
 
   if (.not.exists) then
-    call create_file(unit, filename, vars, novars, fields, threading, timeunit, &
+    call create_file(unit, CS, filename, vars, novars, fields, threading, timeunit, &
                      G=G, dG=dG, GV=GV)
   else
 
