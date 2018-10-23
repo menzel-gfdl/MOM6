@@ -238,30 +238,40 @@ subroutine create_file(unit,CS, filename, vars, novars, fields, threading, timeu
   if (use_lath) &
     !call mpp_write_meta(unit, axis_lath, name="lath", units=y_axis_units, longname="Latitude", &
     !              cartesian='Y', domain = y_domain, data=gridLatT(jsg:jeg))
+    call fms_register_restart_axis(CS%fileObj, filename, fieldname="lath", data=gridLatT(jsg:jeg), &
+         cartesian='Y', units=y_axis_units, longname="Latitude")
 
-    call fms_register_restart_axis(CS%fileObj,filename,"lath",data=gridLatT(jsg:jeg),cartesian='Y',units=y_axis_units,longname="Latitude")
   if (use_lonh) &
     !call mpp_write_meta(unit, axis_lonh, name="lonh", units=x_axis_units, longname="Longitude", &
     !               cartesian='X', domain = x_domain, data=gridLonT(isg:ieg))
-    call fms_register_restart_axis(CS%fileObj,filename,"lonh",data=gridLonT(isg:ieg),cartesian='X',units=x_axis_units,longname="Longitude")
+    call fms_register_restart_axis(CS%fileObj, filename, fieldname="lonh", data=gridLonT(isg:ieg), &
+         cartesian='X', units=x_axis_units, longname="Longitude")
 
   if (use_latq) &
-    call mpp_write_meta(unit, axis_latq, name="latq", units=y_axis_units, longname="Latitude", &
-                   cartesian='Y', domain = y_domain, data=gridLatB(JsgB:JegB))
+    !call mpp_write_meta(unit, axis_latq, name="latq", units=y_axis_units, longname="Latitude", &
+    !               cartesian='Y', domain = y_domain, data=gridLatB(JsgB:JegB))
+    call fms_register_restart_axis(CS%fileObj, filename, fieldname="latq", data=gridLatB(JsgB:JegB), &
+         cartesian='Y', units=y_axis_units, longname="Latitude")
 
   if (use_lonq) &
-    call mpp_write_meta(unit, axis_lonq, name="lonq", units=x_axis_units, longname="Longitude", &
-                   cartesian='X', domain = x_domain, data=gridLonB(IsgB:IegB))
+    !call mpp_write_meta(unit, axis_lonq, name="lonq", units=x_axis_units, longname="Longitude", &
+    !               cartesian='X', domain = x_domain, data=gridLonB(IsgB:IegB))
+    call fms_register_restart_axis(CS%fileObj, filename, "lonq", data=gridLonB(IsgB:IegB), &
+         cartesian='X', units=x_axis_units, longname="Longitude")
 
   if (use_layer) &
-    call mpp_write_meta(unit, axis_layer, name="Layer", units=trim(GV%zAxisUnits), &
-          longname="Layer "//trim(GV%zAxisLongName), cartesian='Z', &
-          sense=1, data=GV%sLayer(1:GV%ke))
+    !call mpp_write_meta(unit, axis_layer, name="Layer", units=trim(GV%zAxisUnits), &
+    !      longname="Layer "//trim(GV%zAxisLongName), cartesian='Z', &
+    !     sense=1, data=GV%sLayer(1:GV%ke))
+    call fms_register_restart_axis(CS%fileObj, filename, fieldnam="Layer", data=GV%sLayer(1:GV%ke), &
+    cartesian='Z', units=trim(GV%zAxisUnits), longname="Layer "//trim(GV%zAxisLongName), sense=1)
 
   if (use_int) &
-    call mpp_write_meta(unit, axis_int, name="Interface", units=trim(GV%zAxisUnits), &
-          longname="Interface "//trim(GV%zAxisLongName), cartesian='Z', &
-          sense=1, data=GV%sInterface(1:GV%ke+1))
+    !call mpp_write_meta(unit, axis_int, name="Interface", units=trim(GV%zAxisUnits), &
+    !     longname="Interface "//trim(GV%zAxisLongName), cartesian='Z', &
+    !     sense=1, data=GV%sInterface(1:GV%ke+1))
+    call fms_register_restart_axis(CS%fileObj, filename, fieldname="Interface", data=GV%sInterface(1:GV%ke+1), &
+         cartesian='Z', units=trim(GV%zAxisUnits), longname="Interface "//trim(GV%zAxisLongName), sense=1)
 
   if (use_time) then ; if (present(timeunit)) then
     ! Set appropriate units, depending on the value.
@@ -280,10 +290,10 @@ subroutine create_file(unit,CS, filename, vars, novars, fields, threading, timeu
     endif
 
     !call mpp_write_meta(unit, axis_time, name="Time", units=time_units, longname="Time", cartesian='T')
-    call fms_register_restart_axis(CS%fileObj,filename,"Time",cartesian='T',units=time_units,longname="Time") 
+    call fms_register_restart_axis(CS%fileObj, filename, fieldname="Time", cartesian='T', units=time_units, longname="Time") 
   else
     !call mpp_write_meta(unit, axis_time, name="Time", units="days", longname="Time",cartesian= 'T')
-     call fms_register_restart_axis(CS%fileObj,filename,"Time",cartesian='T',units=time_units,longname="Time")
+    call fms_register_restart_axis(CS%fileObj, filename, fieldname="Time", cartesian='T', units=time_units, longname="Time")
   endif ; endif
 
   if (use_periodic) then
@@ -292,8 +302,10 @@ subroutine create_file(unit,CS, filename, vars, novars, fields, threading, timeu
     ! Define a periodic axis with unit labels.
     allocate(period_val(num_periods))
     do k=1,num_periods ; period_val(k) = real(k) ; enddo
-    call mpp_write_meta(unit, axis_periodic, name="Period", units="nondimensional", &
-          longname="Periods for cyclical varaiables", cartesian= 't', data=period_val)
+    !call mpp_write_meta(unit, axis_periodic, name="Period", units="nondimensional", &
+    !      longname="Periods for cyclical variables", cartesian= 't', data=period_val)
+    call fms_register_restart_axis(fileObj, filename, fieldname="Period", data=period_val, &
+         cartesian='t', units="nondimensional", longname="Periods for cyclical variables")
     deallocate(period_val)
   endif
 
@@ -420,7 +432,7 @@ subroutine reopen_file(unit, CS, filename, vars, novars, fields, threading, time
       write (mesg,*) "Reopening file ",trim(filename)," apparently had ",nvar,&
                      " variables. Clobbering and creating file with ",novars," instead."
       call MOM_error(WARNING,"MOM_io: "//mesg)
-      call create_file(unit, filename, vars, novars, fields, threading, timeunit, G=G, GV=GV)
+      call create_file(unit, CS, filename, vars, novars, fields, threading, timeunit, G=G, GV=GV)
     elseif (nvar /= novars) then
       write (mesg,*) "Reopening file ",trim(filename)," with ",novars,&
                      " variables instead of ",nvar,"."
