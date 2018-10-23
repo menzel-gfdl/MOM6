@@ -796,7 +796,7 @@ subroutine save_restart(directory, time, G, CS, time_stamped, filename, GV)
                                                   !! are to be written
   type(time_type),         intent(in)    :: time  !< The current model time
   type(ocean_grid_type),   intent(inout) :: G     !< The ocean's grid structure
-  type(MOM_restart_CS),    pointer       :: CS    !< The control structure returned by a previous
+  type(MOM_restart_CS),    intent(in)    :: CS    !< The control structure returned by a previous
                                                   !! call to restart_init.
   logical,          optional, intent(in) :: time_stamped !< If present and true, add time-stamp
                                                   !! to the restart file names.
@@ -976,10 +976,10 @@ subroutine save_restart(directory, time, G, CS, time_stamped, filename, GV)
    ! enddo
     
     if (CS%parallel_restartfiles) then
-      call create_file(unit,CS, trim(restartpath), vars, (next_var-start_var), &
+      call create_file(unit, CS, trim(restartpath), vars, (next_var-start_var), &
                        fields, MULTIPLE, G=G, GV=GV, checksums=check_val)
     else
-      call create_file(unit,CS, trim(restartpath), vars, (next_var-start_var), &
+      call create_file(unit, CS, trim(restartpath), vars, (next_var-start_var), &
                       fields, SINGLE_FILE, G=G, GV=GV, checksums=check_val)
     endif
   
@@ -1006,7 +1006,7 @@ subroutine save_restart(directory, time, G, CS, time_stamped, filename, GV)
     enddo
   
     !call close_file(unit)
-    call fms_save_restart(fileObj, time_stamp, directory, append, time_level)
+    call fms_save_restart(CS%fileObj, time_stamp, directory, append=.true., time_level=restart_time)
   
     num_files = num_files+1
 
