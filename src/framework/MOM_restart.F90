@@ -1,4 +1,7 @@
-!> The MOM6 facility for reading and writing restart files, and querying what has been read.
+module unuse /home/fms/local/modulefiles
+module unuse /home/sdu/publicmodules 
+module use /home/fms/local/modulefiles
+module use -a /home/sdu/publicmodulesfms!> The MOM6 facility for reading and writing restart files, and querying what has been read.
 module MOM_restart
 
 ! This file is part of MOM6. See LICENSE.md for the license.
@@ -22,6 +25,7 @@ use mpp_io_mod,      only:  mpp_attribute_exist, mpp_get_atts
 use fms_io_mod, only: fms_register_restart_field => register_restart_field, restart_file_type
 use fms_io_mod, only: fms_write_data => write_data
 use fms_io_mod, only: fms_save_restart => save_restart
+use fms_io_mod, only: fms_register_restart_axis => register_restart_axis
               
 
 
@@ -919,14 +923,14 @@ subroutine save_restart(directory, time, G, CS, time_stamped, filename, GV)
     next_var = m
 
     !query fms_io if there is a filename_appendix (for ensemble runs)
-  !  call get_filename_appendix(filename_appendix)
-  !  if (len_trim(filename_appendix) > 0) then
-  !    length = len_trim(restartname)
- !     if (restartname(length-2:length) == '.nc') then
-  !      restartname = restartname(1:length-3)//'.'//trim(filename_appendix)//'.nc'
-  !    else
-  !      restartname = restartname(1:length)  //'.'//trim(filename_appendix)
-  !    endif
+    !call get_filename_appendix(filename_appendix)
+    !if (len_trim(filename_appendix) > 0) then
+    !  length = len_trim(restartname)
+    !  if (restartname(length-2:length) == '.nc') then
+    !    restartname = restartname(1:length-3)//'.'//trim(filename_appendix)//'.nc'
+    !  else
+    !    restartname = restartname(1:length)  //'.'//trim(filename_appendix)
+    !  endif
   !  endif
 
    
@@ -975,14 +979,15 @@ subroutine save_restart(directory, time, G, CS, time_stamped, filename, GV)
    !   endif
    ! enddo
     
-    if (CS%parallel_restartfiles) then
-      call create_file(unit, CS, trim(restartpath), vars, (next_var-start_var), &
-                       fields, MULTIPLE, G=G, GV=GV, checksums=check_val)
-    else
-      call create_file(unit, CS, trim(restartpath), vars, (next_var-start_var), &
-                      fields, SINGLE_FILE, G=G, GV=GV, checksums=check_val)
-    endif
-  
+   ! if (CS%parallel_restartfiles) then
+   !   call create_file(unit, trim(restartpath), vars, (next_var-start_var), &
+   !                    fields, MULTIPLE, G=G, GV=GV, checksums=check_val)
+   ! else
+   !   call create_file(unit,trim(restartpath), vars, (next_var-start_var), &
+   !                   fields, SINGLE_FILE, G=G, GV=GV, checksums=check_val)
+   ! endif
+    call register_restart_file_axis(CS,restartname, vars, (next_var-start_var),fields, G=G, GV=GV, checksums=check_val)
+
 
     do m=start_var,next_var-1
     !  call fms_write_data(restartname, fields(m-start_var+1), CS%, G%Domain%mpp_domain, position=pos) 
@@ -1012,6 +1017,239 @@ subroutine save_restart(directory, time, G, CS, time_stamped, filename, GV)
 
   enddo
 end subroutine save_restart
+
+!> Routine wraps fms register_restart_axis interface to set up
+!! structures that describe the file and variables that will
+!! later be written to the file. Type for describing a variable, typically a tracer
+subroutine register_restart_file_axis(CS, filename, vars, novars, fields, timeunit, G, dG, GV, checksums)
+  type(MOM_restart_CS),  intent(inout) :: CS         !< The control structure returne
+  type(vardesc),         intent(in)    :: vars(:)    !< structures describing fields written to filename
+  integer,               intent(in)    :: novars     !< number of fields written to filename
+  type(fieldtype),       intent(inout) :: fields(:)  !< array of fieldtypes for each variable
+
+  real, optional,        intent(in)    :: timeunit   !< length, in seconds, of the units for time. The
+                                                     !! default value is 86400.0, for 1 day.
+  type(ocean_grid_type),   optional, intent(in) :: G !< ocean horizontal grid structure; G or dG
+                                                     !! is required if the new file uses any
+                                                     !! horizontal grid axes.
+  type(dyn_horgrid_type),  optional, intent(in) :: dG !< dynamic horizontal grid structure; G or dG
+                                                     !! is required if the new file uses any
+                                                     !! horizontal grid axes.
+  type(verticalGrid_type), optional, intent(in) :: GV !< ocean vertical grid structure, which is
+                                                     !! required if the new file uses any
+                                                     !! vertical grid axes.
+  integer(kind=8), optional,      intent(in)    :: checksums(:,:)  !< checksums of vars
+
+  logical        :: use_lath, use_lonh, use_latq, use_lonq, use_time
+  logical        :: use_layer, use_int, use_periodic
+  logical        :: one_file, domain_set
+  type(axistype) :: axis_lath, axis_latq, axis_lonh, axis_lonq
+  type(axistype) :: axis_layer, axis_int, axis_time, axis_periodic
+  type(axistype) :: axes(4)
+  type(MOM_domain_type), pointer :: Domain => NULL()
+  type(domain1d) :: x_domain, y_domain
+  integer        :: numaxes, pack, thread, k
+  integer        :: isg, ieg, jsg, jeg, IsgB, IegB, JsgB, JegB
+  integer        :: var_periods, num_periods=0
+  real, dimension(:), allocatable :: period_val
+  real, pointer, dimension(:) :: &
+    gridLatT => NULL(), & ! The latitude or longitude of T or B points for
+    gridLatB => NULL(), & ! the purpose of labeling the output axes.
+    gridLonT => NULL(), gridLonB => NULL()
+  character(len=40) :: time_units, x_axis_units, y_axis_units
+  character(len=8)  :: t_grid, t_grid_read
+
+  use_lath  = .false. ; use_lonh     = .false.
+  use_latq  = .false. ; use_lonq     = .false.
+  use_time  = .false. ; use_periodic = .false.
+  use_layer = .false. ; use_int      = .false.
+
+  domain_set = .false.
+  if (present(G)) then
+    domain_set = .true. ; Domain => G%Domain
+    gridLatT => G%gridLatT ; gridLatB => G%gridLatB
+    gridLonT => G%gridLonT ; gridLonB => G%gridLonB
+    x_axis_units = G%x_axis_units ; y_axis_units = G%y_axis_units
+    isg = G%isg ; ieg = G%ieg ; jsg = G%jsg ; jeg = G%jeg
+    IsgB = G%IsgB ; IegB = G%IegB ; JsgB = G%JsgB ; JegB = G%JegB
+  elseif (present(dG)) then
+    domain_set = .true. ; Domain => dG%Domain
+    gridLatT => dG%gridLatT ; gridLatB => dG%gridLatB
+    gridLonT => dG%gridLonT ; gridLonB => dG%gridLonB
+    x_axis_units = dG%x_axis_units ; y_axis_units = dG%y_axis_units
+    isg = dG%isg ; ieg = dG%ieg ; jsg = dG%jsg ; jeg = dG%jeg
+    IsgB = dG%IsgB ; IegB = dG%IegB ; JsgB = dG%JsgB ; JegB = dG%JegB
+  endif
+
+! Define the coordinates.
+  do k=1,novars
+    select case (vars(k)%hor_grid)
+      case ('h') ; use_lath = .true. ; use_lonh = .true.
+      case ('q') ; use_latq = .true. ; use_lonq = .true.
+      case ('u') ; use_lath = .true. ; use_lonq = .true.
+      case ('v') ; use_latq = .true. ; use_lonh = .true.
+      case ('T')  ; use_lath = .true. ; use_lonh = .true.
+      case ('Bu') ; use_latq = .true. ; use_lonq = .true.
+      case ('Cu') ; use_lath = .true. ; use_lonq = .true.
+      case ('Cv') ; use_latq = .true. ; use_lonh = .true.
+      case ('1') ! Do nothing.
+      case default
+        call MOM_error(WARNING, "MOM_restart register_restart_axis: "//trim(vars(k)%name)//&
+                        " has unrecognized hor_grid "//trim(vars(k)%hor_grid))
+    end select
+    select case (vars(k)%z_grid)
+      case ('L') ; use_layer = .true.
+      case ('i') ; use_int = .true.
+      case ('1') ! Do nothing.
+      case default
+        call MOM_error(FATAL, "MOM_restart register_restart_axis: "//trim(vars(k)%name)//&
+                        " has unrecognized z_grid "//trim(vars(k)%z_grid))
+    end select
+    t_grid = adjustl(vars(k)%t_grid)
+    select case (t_grid(1:1))
+      case ('s', 'a', 'm') ; use_time = .true.
+      case ('p') ; use_periodic = .true.
+        if (len_trim(t_grid(2:8)) <= 0) call MOM_error(FATAL, &
+          "MOM_io create_file: No periodic axis length was specified in "//&
+          trim(vars(k)%t_grid) // " in the periodic axes of variable "//&
+          trim(vars(k)%name)//" in file "//trim(filename))
+        var_periods = -9999999
+        t_grid_read = adjustl(t_grid(2:8))
+        read(t_grid_read,*) var_periods
+        if (var_periods == -9999999) call MOM_error(FATAL, &
+          "MOM_io create_file: Failed to read the number of periods from "//&
+          trim(vars(k)%t_grid) // " in the periodic axes of variable "//&
+          trim(vars(k)%name)//" in file "//trim(filename))
+        if (var_periods < 1) call MOM_error(FATAL, "MOM_io create_file: "//&
+           "variable "//trim(vars(k)%name)//" in file "//trim(filename)//&
+           " uses a periodic time axis, and must have a positive "//&
+           "value for the number of periods in "//vars(k)%t_grid )
+        if ((num_periods > 0) .and. (var_periods /= num_periods)) &
+          call MOM_error(FATAL, "MOM_io create_file: "//&
+            "Only one value of the number of periods can be used in the "//&
+            "create_file call for file "//trim(filename)//".  The second is "//&
+            "variable "//trim(vars(k)%name)//" with t_grid "//vars(k)%t_grid )
+
+        num_periods = var_periods
+      case ('1') ! Do nothing.
+      case default
+        call MOM_error(WARNING, "MOM_restart register_restart_axis: "//trim(vars(k)%name)//&
+                        " has unrecognized t_grid "//trim(vars(k)%t_grid))
+    end select
+  enddo
+
+ 
+
+! Specify all optional arguments to mpp_write_meta: name, units, longname, cartesian, calendar, sense,
+! domain, data, min). Otherwise if optional arguments are added to mpp_write_meta the compiler may
+! (and in case of GNU does) get confused and crash.
+  if (use_lath) &
+    call mpp_write_meta(unit, axis_lath, name="lath", units=y_axis_units, longname="Latitude", &
+                   cartesian='Y', domain = y_domain, data=gridLatT(jsg:jeg))
+
+  if (use_lonh) &
+    call mpp_write_meta(unit, axis_lonh, name="lonh", units=x_axis_units, longname="Longitude", &
+                   cartesian='X', domain = x_domain, data=gridLonT(isg:ieg))
+
+  if (use_latq) &
+    call mpp_write_meta(unit, axis_latq, name="latq", units=y_axis_units, longname="Latitude", &
+                   cartesian='Y', domain = y_domain, data=gridLatB(JsgB:JegB))
+
+  if (use_lonq) &
+    call mpp_write_meta(unit, axis_lonq, name="lonq", units=x_axis_units, longname="Longitude", &
+                   cartesian='X', domain = x_domain, data=gridLonB(IsgB:IegB))
+
+  if (use_layer) &
+    call mpp_write_meta(unit, axis_layer, name="Layer", units=trim(GV%zAxisUnits), &
+          longname="Layer "//trim(GV%zAxisLongName), cartesian='Z', &
+          sense=1, data=GV%sLayer(1:GV%ke))
+
+  if (use_int) &
+    call mpp_write_meta(unit, axis_int, name="Interface", units=trim(GV%zAxisUnits), &
+          longname="Interface "//trim(GV%zAxisLongName), cartesian='Z', &
+          sense=1, data=GV%sInterface(1:GV%ke+1))
+
+  if (use_time) then ; if (present(timeunit)) then
+    ! Set appropriate units, depending on the value.
+    if (timeunit < 0.0) then
+      time_units = "days" ! The default value.
+    elseif ((timeunit >= 0.99) .and. (timeunit < 1.01)) then
+      time_units = "seconds"
+    elseif ((timeunit >= 3599.0) .and. (timeunit < 3601.0)) then
+      time_units = "hours"
+    elseif ((timeunit >= 86399.0) .and. (timeunit < 86401.0)) then
+      time_units = "days"
+    elseif ((timeunit >= 3.0e7) .and. (timeunit < 3.2e7)) then
+      time_units = "years"
+    else
+      write(time_units,'(es8.2," s")') timeunit
+    endif
+
+    call mpp_write_meta(unit, axis_time, name="Time", units=time_units, longname="Time", cartesian='T')
+  else
+    call mpp_write_meta(unit, axis_time, name="Time", units="days", longname="Time",cartesian= 'T')
+  endif ; endif
+
+  if (use_periodic) then
+    if (num_periods <= 1) call MOM_error(FATAL, "MOM_io create_file: "//&
+      "num_periods for file "//trim(filename)//" must be at least 1.")
+    ! Define a periodic axis with unit labels.
+    allocate(period_val(num_periods))
+    do k=1,num_periods ; period_val(k) = real(k) ; enddo
+    call mpp_write_meta(unit, axis_periodic, name="Period", units="nondimensional", &
+          longname="Periods for cyclical varaiables", cartesian= 't', data=period_val)
+    deallocate(period_val)
+  endif
+
+  do k=1,novars
+    numaxes = 0
+    select case (vars(k)%hor_grid)
+      case ('h')  ; numaxes = 2 ; axes(1) = axis_lonh ; axes(2) = axis_lath
+      case ('q')  ; numaxes = 2 ; axes(1) = axis_lonq ; axes(2) = axis_latq
+      case ('u')  ; numaxes = 2 ; axes(1) = axis_lonq ; axes(2) = axis_lath
+      case ('v')  ; numaxes = 2 ; axes(1) = axis_lonh ; axes(2) = axis_latq
+      case ('T')  ; numaxes = 2 ; axes(1) = axis_lonh ; axes(2) = axis_lath
+      case ('Bu') ; numaxes = 2 ; axes(1) = axis_lonq ; axes(2) = axis_latq
+      case ('Cu') ; numaxes = 2 ; axes(1) = axis_lonq ; axes(2) = axis_lath
+      case ('Cv') ; numaxes = 2 ; axes(1) = axis_lonh ; axes(2) = axis_latq
+      case ('1') ! Do nothing.
+      case default
+        call MOM_error(WARNING, "MOM_io create_file: "//trim(vars(k)%name)//&
+                        " has unrecognized hor_grid "//trim(vars(k)%hor_grid))
+    end select
+    select case (vars(k)%z_grid)
+      case ('L') ; numaxes = numaxes+1 ; axes(numaxes) = axis_layer
+      case ('i') ; numaxes = numaxes+1 ; axes(numaxes) = axis_int
+      case ('1') ! Do nothing.
+      case default
+        call MOM_error(FATAL, "MOM_io create_file: "//trim(vars(k)%name)//&
+                        " has unrecognized z_grid "//trim(vars(k)%z_grid))
+    end select
+    t_grid = adjustl(vars(k)%t_grid)
+    select case (t_grid(1:1))
+      case ('s', 'a', 'm') ; numaxes = numaxes+1 ; axes(numaxes) = axis_time
+      case ('p')           ; numaxes = numaxes+1 ; axes(numaxes) = axis_periodic
+      case ('1') ! Do nothing.
+      case default
+        call MOM_error(WARNING, "MOM_io create_file: "//trim(vars(k)%name)//&
+                        " has unrecognized t_grid "//trim(vars(k)%t_grid))
+    end select
+    pack = 1
+
+    if (present(checksums)) then
+       call mpp_write_meta(unit, fields(k), axes(1:numaxes), vars(k)%name, vars(k)%units, &
+           vars(k)%longname, pack = pack, checksum=checksums(k,:))
+    else
+       call mpp_write_meta(unit, fields(k), axes(1:numaxes), vars(k)%name, vars(k)%units, &
+           vars(k)%longname, pack = pack)
+    endif
+  enddo
+
+
+end subroutine register_restart_file_axis
+
+
+
 
 !> restore_state reads the model state from previously generated files.  All
 !! restart variables are read from the first file in the input filename list
