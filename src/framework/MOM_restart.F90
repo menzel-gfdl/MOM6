@@ -6,7 +6,7 @@ module MOM_restart
 
 ! This file is part of MOM6. See LICENSE.md for the license.
 
-use MOM_domains, only : pe_here, num_PEs
+use MOM_domains, only : pe_here, num_PEs, MOM_domain_type
 use MOM_error_handler, only : MOM_error, FATAL, WARNING, NOTE, is_root_pe
 use MOM_file_parser, only : get_param, log_param, log_version, param_file_type
 use MOM_string_functions, only : lowercase
@@ -20,14 +20,14 @@ use MOM_io, only : CENTER, CORNER, NORTH_FACE, EAST_FACE
 use MOM_time_manager, only : time_type, time_type_to_real, real_to_time
 use MOM_time_manager, only : days_in_month, get_date, set_date
 use MOM_verticalGrid, only : verticalGrid_type
-use mpp_mod,         only:  mpp_chksum,mpp_pe
-use mpp_io_mod,      only:  mpp_attribute_exist, mpp_get_atts
-use fms_io_mod, only: fms_register_restart_field => register_restart_field, restart_file_type
-use fms_io_mod, only: fms_write_data => write_data
-use fms_io_mod, only: fms_save_restart => save_restart
-use fms_io_mod, only: fms_register_restart_axis => register_restart_axis
-              
-
+! FMS features
+use fms_io_mod, only : fms_register_restart_axis => register_restart_axis
+use fms_io_mod, only : fms_register_restart_field => register_restart_field, restart_file_type
+use fms_io_mod, only : fms_save_restart => save_restart
+use fms_io_mod, only : fms_write_data => write_data
+use mpp_mod, only :  mpp_chksum,mpp_pe
+use mpp_io_mod, only : axistype, domain1d, domain2d, fieldtype
+use mpp_io_mod, only : mpp_attribute_exist, mpp_get_atts
 
 implicit none ; private
 
@@ -986,7 +986,7 @@ subroutine save_restart(directory, time, G, CS, time_stamped, filename, GV)
    !   call create_file(unit,trim(restartpath), vars, (next_var-start_var), &
    !                   fields, SINGLE_FILE, G=G, GV=GV, checksums=check_val)
    ! endif
-    call register_restart_file_axis(CS,restartname, vars, (next_var-start_var),fields, G=G, GV=GV, checksums=check_val)
+    call register_restart_file_axis(CS,restartname, restart_time, (next_var-start_var), G=G, GV=GV, checksums=check_val)
 
 
     do m=start_var,next_var-1
@@ -1020,13 +1020,12 @@ end subroutine save_restart
 
 !> Routine wraps fms register_restart_axis interface to set up
 !! structures that describe the file and variables that will
-!! later be written to the file. Type for describing a variable, typically a tracer
-subroutine register_restart_file_axis(CS, filename, vars, novars, fields, timeunit, G, dG, GV, checksums)
-  type(MOM_restart_CS),  intent(inout) :: CS         !< The control structure returne
+!! later be written to the file. This routine is a modified version of MOM_io:create_file.
+subroutine register_restart_file_axis(CS, filename, timeval, timeunit, G, dG, GV, checksums)
+  type(MOM_restart_CS),  intent(inout) :: CS         !< The control structure with all variables
+  character(len=*),      intent(in)    :: filename   !< full path to the restart file
   type(vardesc),         intent(in)    :: vars(:)    !< structures describing fields written to filename
   integer,               intent(in)    :: novars     !< number of fields written to filename
-  type(fieldtype),       intent(inout) :: fields(:)  !< array of fieldtypes for each variable
-
   real, optional,        intent(in)    :: timeunit   !< length, in seconds, of the units for time. The
                                                      !! default value is 86400.0, for 1 day.
   type(ocean_grid_type),   optional, intent(in) :: G !< ocean horizontal grid structure; G or dG
@@ -1081,7 +1080,7 @@ subroutine register_restart_file_axis(CS, filename, vars, novars, fields, timeun
     IsgB = dG%IsgB ; IegB = dG%IegB ; JsgB = dG%JsgB ; JegB = dG%JegB
   endif
 
-! Define the coordinates.
+  ! Define the coordinates.
   do k=1,novars
     select case (vars(k)%hor_grid)
       case ('h') ; use_lath = .true. ; use_lonh = .true.
@@ -1094,7 +1093,7 @@ subroutine register_restart_file_axis(CS, filename, vars, novars, fields, timeun
       case ('Cv') ; use_latq = .true. ; use_lonh = .true.
       case ('1') ! Do nothing.
       case default
-        call MOM_error(WARNING, "MOM_restart register_restart_axis: "//trim(vars(k)%name)//&
+        call MOM_error(WARNING, "MOM_io create_file: "//trim(vars(k)%name)//&
                         " has unrecognized hor_grid "//trim(vars(k)%hor_grid))
     end select
     select case (vars(k)%z_grid)
@@ -1102,7 +1101,7 @@ subroutine register_restart_file_axis(CS, filename, vars, novars, fields, timeun
       case ('i') ; use_int = .true.
       case ('1') ! Do nothing.
       case default
-        call MOM_error(FATAL, "MOM_restart register_restart_axis: "//trim(vars(k)%name)//&
+        call MOM_error(FATAL, "MOM_io create_file: "//trim(vars(k)%name)//&
                         " has unrecognized z_grid "//trim(vars(k)%z_grid))
     end select
     t_grid = adjustl(vars(k)%t_grid)
@@ -1110,22 +1109,22 @@ subroutine register_restart_file_axis(CS, filename, vars, novars, fields, timeun
       case ('s', 'a', 'm') ; use_time = .true.
       case ('p') ; use_periodic = .true.
         if (len_trim(t_grid(2:8)) <= 0) call MOM_error(FATAL, &
-          "MOM_io create_file: No periodic axis length was specified in "//&
+          "MOM_restart register_restart_file_axis: No periodic axis length was specified in "//&
           trim(vars(k)%t_grid) // " in the periodic axes of variable "//&
           trim(vars(k)%name)//" in file "//trim(filename))
         var_periods = -9999999
         t_grid_read = adjustl(t_grid(2:8))
         read(t_grid_read,*) var_periods
         if (var_periods == -9999999) call MOM_error(FATAL, &
-          "MOM_io create_file: Failed to read the number of periods from "//&
+          "MOM_restart register_restart_file_axis: Failed to read the number of periods from "//&
           trim(vars(k)%t_grid) // " in the periodic axes of variable "//&
           trim(vars(k)%name)//" in file "//trim(filename))
-        if (var_periods < 1) call MOM_error(FATAL, "MOM_io create_file: "//&
+        if (var_periods < 1) call MOM_error(FATAL, "MOM_restart register_restart_file_axis: "//&
            "variable "//trim(vars(k)%name)//" in file "//trim(filename)//&
            " uses a periodic time axis, and must have a positive "//&
            "value for the number of periods in "//vars(k)%t_grid )
         if ((num_periods > 0) .and. (var_periods /= num_periods)) &
-          call MOM_error(FATAL, "MOM_io create_file: "//&
+          call MOM_error(FATAL, "MOM_restart register_restart_file_axis: "//&
             "Only one value of the number of periods can be used in the "//&
             "create_file call for file "//trim(filename)//".  The second is "//&
             "variable "//trim(vars(k)%name)//" with t_grid "//vars(k)%t_grid )
@@ -1133,16 +1132,12 @@ subroutine register_restart_file_axis(CS, filename, vars, novars, fields, timeun
         num_periods = var_periods
       case ('1') ! Do nothing.
       case default
-        call MOM_error(WARNING, "MOM_restart register_restart_axis: "//trim(vars(k)%name)//&
+        call MOM_error(WARNING, "MOM_io create_file: "//trim(vars(k)%name)//&
                         " has unrecognized t_grid "//trim(vars(k)%t_grid))
     end select
   enddo
 
- 
-
-! Specify all optional arguments to mpp_write_meta: name, units, longname, cartesian, calendar, sense,
-! domain, data, min). Otherwise if optional arguments are added to mpp_write_meta the compiler may
-! (and in case of GNU does) get confused and crash.
+  ! register all restart file axes
   if (use_lath) &
     call mpp_write_meta(unit, axis_lath, name="lath", units=y_axis_units, longname="Latitude", &
                    cartesian='Y', domain = y_domain, data=gridLatT(jsg:jeg))
@@ -1185,9 +1180,13 @@ subroutine register_restart_file_axis(CS, filename, vars, novars, fields, timeun
       write(time_units,'(es8.2," s")') timeunit
     endif
 
-    call mpp_write_meta(unit, axis_time, name="Time", units=time_units, longname="Time", cartesian='T')
+    !call mpp_write_meta(unit, axis_time, name="Time", units=time_units, longname="Time", cartesian='T')
+    call fms_register_restart_axis(CS%fileobj, filename, "Time", &
+         nelem=G%domain%mpp_domain%io_layout, units=time_units, longname="Time")
   else
-    call mpp_write_meta(unit, axis_time, name="Time", units="days", longname="Time",cartesian= 'T')
+    !call mpp_write_meta(unit, axis_time, name="Time", units="days", longname="Time",cartesian= 'T')
+     call fms_register_restart_axis(CS%fileobj, filename, "Time", &
+         nelem=G%domain%mpp_domain%io_layout, units=time_units, longname="Time")
   endif ; endif
 
   if (use_periodic) then
@@ -1196,55 +1195,12 @@ subroutine register_restart_file_axis(CS, filename, vars, novars, fields, timeun
     ! Define a periodic axis with unit labels.
     allocate(period_val(num_periods))
     do k=1,num_periods ; period_val(k) = real(k) ; enddo
-    call mpp_write_meta(unit, axis_periodic, name="Period", units="nondimensional", &
-          longname="Periods for cyclical varaiables", cartesian= 't', data=period_val)
+    !call mpp_write_meta(unit, axis_periodic, name="Period", units="nondimensional", &
+    !      longname="Periods for cyclical varaiables", cartesian= 't', data=period_val)
+     call fms_register_restart_axis(CS%fileobj, filename, "Period", data=period_val, &
+         cartesian='T', units="nondimensional", longname="Periods for cyclical variables")
     deallocate(period_val)
-  endif
-
-  do k=1,novars
-    numaxes = 0
-    select case (vars(k)%hor_grid)
-      case ('h')  ; numaxes = 2 ; axes(1) = axis_lonh ; axes(2) = axis_lath
-      case ('q')  ; numaxes = 2 ; axes(1) = axis_lonq ; axes(2) = axis_latq
-      case ('u')  ; numaxes = 2 ; axes(1) = axis_lonq ; axes(2) = axis_lath
-      case ('v')  ; numaxes = 2 ; axes(1) = axis_lonh ; axes(2) = axis_latq
-      case ('T')  ; numaxes = 2 ; axes(1) = axis_lonh ; axes(2) = axis_lath
-      case ('Bu') ; numaxes = 2 ; axes(1) = axis_lonq ; axes(2) = axis_latq
-      case ('Cu') ; numaxes = 2 ; axes(1) = axis_lonq ; axes(2) = axis_lath
-      case ('Cv') ; numaxes = 2 ; axes(1) = axis_lonh ; axes(2) = axis_latq
-      case ('1') ! Do nothing.
-      case default
-        call MOM_error(WARNING, "MOM_io create_file: "//trim(vars(k)%name)//&
-                        " has unrecognized hor_grid "//trim(vars(k)%hor_grid))
-    end select
-    select case (vars(k)%z_grid)
-      case ('L') ; numaxes = numaxes+1 ; axes(numaxes) = axis_layer
-      case ('i') ; numaxes = numaxes+1 ; axes(numaxes) = axis_int
-      case ('1') ! Do nothing.
-      case default
-        call MOM_error(FATAL, "MOM_io create_file: "//trim(vars(k)%name)//&
-                        " has unrecognized z_grid "//trim(vars(k)%z_grid))
-    end select
-    t_grid = adjustl(vars(k)%t_grid)
-    select case (t_grid(1:1))
-      case ('s', 'a', 'm') ; numaxes = numaxes+1 ; axes(numaxes) = axis_time
-      case ('p')           ; numaxes = numaxes+1 ; axes(numaxes) = axis_periodic
-      case ('1') ! Do nothing.
-      case default
-        call MOM_error(WARNING, "MOM_io create_file: "//trim(vars(k)%name)//&
-                        " has unrecognized t_grid "//trim(vars(k)%t_grid))
-    end select
-    pack = 1
-
-    if (present(checksums)) then
-       call mpp_write_meta(unit, fields(k), axes(1:numaxes), vars(k)%name, vars(k)%units, &
-           vars(k)%longname, pack = pack, checksum=checksums(k,:))
-    else
-       call mpp_write_meta(unit, fields(k), axes(1:numaxes), vars(k)%name, vars(k)%units, &
-           vars(k)%longname, pack = pack)
-    endif
-  enddo
-
+  endif  
 
 end subroutine register_restart_file_axis
 
