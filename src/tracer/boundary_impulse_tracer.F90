@@ -140,7 +140,7 @@ function register_boundary_impulse_tracer(HI, GV, param_file, G, CS, tr_Reg, res
   rem_time_ptr => CS%remaining_source_time
   call register_restart_field(rem_time_ptr, "bir_remain_time", &
                               .not.CS%tracers_may_reinit, G, restart_CS, &
-                              "Remaining time to apply BIR source", "s")
+                               GV=GV, longname="Remaining time to apply BIR source", units="s")
 
   CS%tr_Reg => tr_Reg
   CS%restart_CSp => restart_CS

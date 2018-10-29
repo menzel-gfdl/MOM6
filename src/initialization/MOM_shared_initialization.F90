@@ -15,6 +15,7 @@ use MOM_io, only : close_file, create_file, fieldtype, file_exists
 use MOM_io, only : MOM_read_data, MOM_read_vector, SINGLE_FILE, MULTIPLE
 use MOM_io, only : slasher, vardesc, write_field, var_desc
 use MOM_string_functions, only : uppercase
+!use fms_io_mod, only: restart_file_type
 
 use netcdf
 

@@ -296,7 +296,7 @@ subroutine register_tracer(tr_ptr, Reg, param_file, HI, GV, G, name, longname, u
     mand = .true. ; if (present(mandatory)) mand = mandatory
 
     call register_restart_field(tr_ptr, Tr%name, mand, G, restart_CS, &
-                                longname=Tr%longname, units=Tr%units)
+                                GV=GV, longname=Tr%longname, units=Tr%units)
   endif ; endif
 
 end subroutine register_tracer

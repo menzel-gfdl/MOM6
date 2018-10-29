@@ -4401,8 +4401,8 @@ subroutine register_barotropic_restarts(HI, GV, G, param_file, CS, restart_CS)
                 hor_grid='u', z_grid='1')
   vd(3) = var_desc("vbtav","m s-1","Time mean barotropic meridional velocity",&
                 hor_grid='v', z_grid='1')
-  call register_restart_field(CS%ubtav, vd(2)%name, .false., G, restart_CS)
-  call register_restart_field(CS%vbtav, vd(3)%name, .false., G, restart_CS)
+  call register_restart_field(CS%ubtav, vd(2)%name, .false., G, restart_CS, GV=GV)
+  call register_restart_field(CS%vbtav, vd(3)%name, .false., G, restart_CS, GV=GV)
 
   vd(2) = var_desc("ubt_IC", "m s-1", &
               longname="Next initial condition for the barotropic zonal velocity", &
@@ -4410,8 +4410,8 @@ subroutine register_barotropic_restarts(HI, GV, G, param_file, CS, restart_CS)
   vd(3) = var_desc("vbt_IC", "m s-1", &
               longname="Next initial condition for the barotropic meridional velocity",&
               hor_grid='v', z_grid='1')
-  call register_restart_field(CS%ubt_IC, vd(2)%name, .false., G, restart_CS)
-  call register_restart_field(CS%vbt_IC, vd(3)%name, .false., G, restart_CS)
+  call register_restart_field(CS%ubt_IC, vd(2)%name, .false., G, restart_CS, GV=GV)
+  call register_restart_field(CS%vbt_IC, vd(3)%name, .false., G, restart_CS, GV=GV)
 
   if (GV%Boussinesq) then
    vd(2) = var_desc("uhbt_IC", "m3 s-1", &
@@ -4428,11 +4428,11 @@ subroutine register_barotropic_restarts(HI, GV, G, param_file, CS, restart_CS)
                 longname="Next initial condition for the barotropic meridional transport",&
                 hor_grid='v', z_grid='1')
   endif
-  call register_restart_field(CS%uhbt_IC, vd(2)%name, .false., G, restart_CS)
-  call register_restart_field(CS%vhbt_IC, vd(3)%name, .false., G, restart_CS)
+  call register_restart_field(CS%uhbt_IC, vd(2)%name, .false., G, restart_CS, GV=GV)
+  call register_restart_field(CS%vhbt_IC, vd(3)%name, .false., G, restart_CS, GV=GV)
 
   call register_restart_field(CS%dtbt, "DTBT", .false., G, restart_CS, &
-                              longname="Barotropic timestep", units="seconds")
+                              GV=GV, longname="Barotropic timestep", units="seconds")
 
 end subroutine register_barotropic_restarts
 

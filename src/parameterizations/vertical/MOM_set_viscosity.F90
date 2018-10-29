@@ -1751,34 +1751,34 @@ subroutine set_visc_register_restarts(HI, GV, G, param_file, visc, restart_CS)
   if (use_kappa_shear .or. useKPP .or. useEPBL .or. use_CVMix_shear .or. use_CVMix_conv) then
     call safe_alloc_ptr(visc%Kd_shear, isd, ied, jsd, jed, nz+1)
     call register_restart_field(visc%Kd_shear, "Kd_shear", .false., G, restart_CS, &
-                  "Shear-driven turbulent diffusivity at interfaces", "m2 s-1", z_grid='i')
+                  GV=GV, longname="Shear-driven turbulent diffusivity at interfaces", units="m2 s-1", z_grid='i')
   endif
   if (useKPP .or. useEPBL .or. use_CVMix_shear .or. use_CVMix_conv .or. &
       (use_kappa_shear .and. .not.KS_at_vertex )) then
     call safe_alloc_ptr(visc%Kv_shear, isd, ied, jsd, jed, nz+1)
     call register_restart_field(visc%Kv_shear, "Kv_shear", .false., G, restart_CS, &
-                  "Shear-driven turbulent viscosity at interfaces", "m2 s-1", z_grid='i')
+                  GV=GV,longname="Shear-driven turbulent viscosity at interfaces", units="m2 s-1", z_grid='i')
   endif
   if (use_kappa_shear .and. KS_at_vertex) then
     call safe_alloc_ptr(visc%TKE_turb, HI%IsdB, HI%IedB, HI%JsdB, HI%JedB, nz+1)
     call register_restart_field(visc%TKE_turb, "TKE_turb", .false., G, restart_CS, &
-                  "Turbulent kinetic energy per unit mass at interfaces", "m2 s-2", &
+                  GV=GV, longname="Turbulent kinetic energy per unit mass at interfaces", units="m2 s-2", &
                   hor_grid="Bu", z_grid='i')
     call safe_alloc_ptr(visc%Kv_shear_Bu, HI%IsdB, HI%IedB, HI%JsdB, HI%JedB, nz+1)
     call register_restart_field(visc%Kv_shear_Bu, "Kv_shear_Bu", .false., G, restart_CS, &
-                  "Shear-driven turbulent viscosity at vertex interfaces", "m2 s-1", &
+                  GV=GV, longname="Shear-driven turbulent viscosity at vertex interfaces", units="m2 s-1", &
                   hor_grid="Bu", z_grid='i')
   elseif (use_kappa_shear) then
     call safe_alloc_ptr(visc%TKE_turb, isd, ied, jsd, jed, nz+1)
     call register_restart_field(visc%TKE_turb, "TKE_turb", .false., G, restart_CS, &
-                  "Turbulent kinetic energy per unit mass at interfaces", "m2 s-2", z_grid='i')
+                  GV=GV, longname="Turbulent kinetic energy per unit mass at interfaces", units="m2 s-2", z_grid='i')
   endif
 
   ! MOM_bkgnd_mixing is always used, so always allocate visc%Kv_slow. GMM
   call safe_alloc_ptr(visc%Kv_slow, isd, ied, jsd, jed, nz+1)
   call register_restart_field(visc%Kv_slow, "Kv_slow", .false., G, restart_CS, &
-                "Vertical turbulent viscosity at interfaces due to slow processes", &
-                "m2 s-1", z_grid='i')
+                GV=GV, longname="Vertical turbulent viscosity at interfaces due to slow processes", &
+                units="m2 s-1", z_grid='i')
 
   ! visc%MLD is used to communicate the state of the (e)PBL to the rest of the model
   call get_param(param_file, mdl, "MLE_USE_PBL_MLD", MLE_use_PBL_MLD, &
@@ -1786,7 +1786,7 @@ subroutine set_visc_register_restarts(HI, GV, G, param_file, visc, restart_CS)
   if (MLE_use_PBL_MLD) then
     call safe_alloc_ptr(visc%MLD, isd, ied, jsd, jed)
     call register_restart_field(visc%MLD, "MLD", .false., G, restart_CS, &
-                  "Instantaneous active mixing layer depth", "m")
+                  GV=GV, longname="Instantaneous active mixing layer depth", units="m")
   endif
 
 end subroutine set_visc_register_restarts

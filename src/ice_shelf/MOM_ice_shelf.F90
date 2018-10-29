@@ -1380,14 +1380,14 @@ subroutine initialize_ice_shelf(param_file, ocn_grid, Time, CS, diag, forces, fl
   ! Set up the restarts.
   call restart_init(param_file, CS%restart_CSp, "Shelf.res")
   call register_restart_field(ISS%mass_shelf, "shelf_mass", .true., G, CS%restart_CSp, &
-                              "Ice shelf mass", "kg m-2")
+                              longname="Ice shelf mass", units="kg m-2")
   call register_restart_field(ISS%area_shelf_h, "shelf_area", .true., G, CS%restart_CSp, &
-                              "Ice shelf area in cell", "m2")
+                              longname="Ice shelf area in cell", units="m2")
   call register_restart_field(ISS%h_shelf, "h_shelf", .true., G, CS%restart_CSp, &
-                              "ice sheet/shelf thickness", "m")
+                              longname="ice sheet/shelf thickness", units="m")
   if (CS%active_shelf_dynamics) then
     call register_restart_field(ISS%hmask, "h_mask", .true., G, CS%restart_CSp, &
-                                "ice sheet/shelf thickness mask" ,"none")
+                                longname="ice sheet/shelf thickness mask" , units="none")
   endif
 
   ! if (CS%active_shelf_dynamics) then  !### Consider adding an ice shelf dynamics switch.
@@ -1398,9 +1398,9 @@ subroutine initialize_ice_shelf(param_file, ocn_grid, Time, CS, diag, forces, fl
   !GMM - I think we do not need to save ustar_shelf and iceshelf_melt in the restart file
   !if (.not. CS%solo_ice_sheet) then
   !  call register_restart_field(fluxes%ustar_shelf, "ustar_shelf", .false., G, CS%restart_CSp, &
-  !                              "Friction velocity under ice shelves", "m s-1")
+  !                              longname="Friction velocity under ice shelves", units="m s-1")
   !  call register_restart_field(fluxes%iceshelf_melt, "iceshelf_melt", .false., G, CS%restart_CSp, &
-  !                              "Ice Shelf Melt Rate", "m year-1")
+  !                              longname="Ice Shelf Melt Rate", units="m year-1")
   !endif
 
   CS%restart_output_dir = dirs%restart_output_dir
