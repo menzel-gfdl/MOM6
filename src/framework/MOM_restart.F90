@@ -33,6 +33,7 @@ implicit none ; private
 public restart_init, restart_end, restore_state, register_restart_field
 public save_restart, query_initialized, restart_init_end, vardesc
 public restart_files_exist, determine_is_new_run, is_new_run
+public register_restart_file_axis
 
 !> A type for making arrays of pointers to 4-d arrays
 type p4d
@@ -314,7 +315,7 @@ subroutine register_restart_field_4d(f_ptr, name, mandatory, G, CS, GV, longname
  
 !  call register_restart_field_ptr4d(f_ptr, vd, mandatory, CS)
   id_restart = fms_register_restart_field(CS%fileObj, CS%restartfile, name, f_ptr, G%Domain%mpp_domain, position=pos)
-  call register_restart_file_axis(CS, CS%restartfile, CS%restart_field%vars, CS%novars, G=G, GV=GV)
+!  call register_restart_file_axis(CS, CS%restartfile, CS%restart_field%vars, CS%novars, G=G, GV=GV)
 
 end subroutine register_restart_field_4d
 
@@ -351,7 +352,7 @@ subroutine register_restart_field_3d(f_ptr, name, mandatory, G, CS, GV, longname
   
 !  call register_restart_field_ptr3d(f_ptr, vd, mandatory, CS)
   id_restart = fms_register_restart_field(CS%fileObj, CS%restartfile, name, f_ptr, G%Domain%mpp_domain, position=pos)
-  call register_restart_file_axis(CS, CS%restartfile, CS%restart_field%vars, CS%novars, G=G, GV=GV)
+!  call register_restart_file_axis(CS, CS%restartfile, CS%restart_field%vars, CS%novars, G=G, GV=GV)
 end subroutine register_restart_field_3d
 
 !> Register a 2-d field for restarts, providing the metadata as individual arguments
@@ -389,7 +390,7 @@ subroutine register_restart_field_2d(f_ptr, name, mandatory, G, CS, GV, longname
   pos = get_hor_grid_position(vd%hor_grid)
 !  call register_restart_field_ptr2d(f_ptr, vd, mandatory, CS)
   id_restart = fms_register_restart_field(CS%fileObj, CS%restartfile, name, f_ptr, G%Domain%mpp_domain, position=pos)
-  call register_restart_file_axis(CS, CS%restartfile, CS%restart_field%vars, CS%novars, G=G, GV=GV)
+ ! call register_restart_file_axis(CS, CS%restartfile, CS%restart_field%vars, CS%novars, G=G, GV=GV)
 end subroutine register_restart_field_2d
 
 !> Register a 1-d field for restarts, providing the metadata as individual arguments
@@ -425,7 +426,7 @@ subroutine register_restart_field_1d(f_ptr, name, mandatory, G, CS, GV, longname
   pos = get_hor_grid_position(vd%hor_grid)
 !  call register_restart_field_ptr1d(f_ptr, vd, mandatory, CS)
   id_restart = fms_register_restart_field(CS%fileObj, CS%restartfile, name, f_ptr, G%Domain%mpp_domain, position=pos)
-  call register_restart_file_axis(CS, CS%restartfile, CS%restart_field%vars, CS%novars, G=G, GV=GV)
+ ! call register_restart_file_axis(CS, CS%restartfile, CS%restart_field%vars, CS%novars, G=G, GV=GV)
 end subroutine register_restart_field_1d
 
 !> Register a 0-d field for restarts, providing the metadata as individual arguments
@@ -456,7 +457,7 @@ subroutine register_restart_field_0d(f_ptr, name, mandatory, G, CS, GV, longname
   pos = get_hor_grid_position(vd%hor_grid)
 !  call register_restart_field_ptr0d(f_ptr, vd, mandatory, CS)
   id_restart = fms_register_restart_field(CS%fileObj, CS%restartfile, name, f_ptr, G%Domain%mpp_domain, position=pos)
-  call register_restart_file_axis(CS, CS%restartfile, CS%restart_field%vars, CS%novars, G=G, GV=GV)
+ 
 end subroutine register_restart_field_0d
 
 !> query_initialized_name determines whether a named field has been successfully
@@ -964,6 +965,8 @@ subroutine save_restart(directory, time, G, CS, time_stamped, filename, GV)
       vars(m-start_var+1) = CS%restart_field(m)%vars
     enddo
 
+    call fms_save_restart(CS%fileObj, time_stamp, directory=trim(directory), append=.true., time_level=restart_time)
+   
     call query_vardesc(vars(1), t_grid=t_grid, hor_grid=hor_grid, caller="save_restart")
     t_grid = adjustl(t_grid)
     if (t_grid(1:1) /= 'p') &
@@ -980,7 +983,7 @@ subroutine save_restart(directory, time, G, CS, time_stamped, filename, GV)
       case ('1') ; pos = 0
       case default ; pos = 0
     end select
-
+    
     !Prepare the checksum of the restart fields to be written to restart files
    ! call get_checksum_loop_ranges(G, pos, isL, ieL, jsL, jeL)
    ! do m=start_var,next_var-1
@@ -996,8 +999,6 @@ subroutine save_restart(directory, time, G, CS, time_stamped, filename, GV)
    !     check_val(m-start_var+1,1) = mpp_chksum(CS%var_ptr0d(m)%p,pelist=(/mpp_pe()/))
    !   endif
    ! enddo
-    
-   ! call register_restart_file_axis(CS, restartname, vars, (next_var-start_var), G=G, GV=GV)
 
 
     !do m=start_var,next_var-1
@@ -1022,8 +1023,8 @@ subroutine save_restart(directory, time, G, CS, time_stamped, filename, GV)
     !enddo
   
     !call close_file(unit)
-    call fms_save_restart(CS%fileObj, time_stamp, directory, append=.true., time_level=restart_time)
-  
+   
+       
     num_files = num_files+1
 
   enddo
@@ -1032,13 +1033,9 @@ end subroutine save_restart
 !> Routine wraps fms register_restart_axis interface to set up
 !! structures that describe the file and variables that will
 !! later be written to the file. This routine is a modified version of MOM_io:create_file.
-subroutine register_restart_file_axis(CS, filename, vars, novars, timeunit, G, dG, GV)
+subroutine register_restart_file_axis(CS, G, dG, GV, timeunit)
   type(MOM_restart_CS),  intent(inout) :: CS         !< The control structure with all variables
-  character(len=*),      intent(in)    :: filename   !< full path to the restart file
-  type(vardesc),         intent(in)    :: vars(:)    !< structures describing fields written to filename
-  integer,               intent(in)    :: novars     !< number of fields written to filename
-  real, optional,        intent(in)    :: timeunit   !< length, in seconds, of the units for time. The
-                                                     !! default value is 86400.0, for 1 day.
+  
   type(ocean_grid_type),   optional, intent(in) :: G !< ocean horizontal grid structure; G or dG
                                                      !! is required if the new file uses any
                                                      !! horizontal grid axes.
@@ -1048,6 +1045,8 @@ subroutine register_restart_file_axis(CS, filename, vars, novars, timeunit, G, d
   type(verticalGrid_type), optional, intent(in) :: GV !< ocean vertical grid structure, which is
                                                      !! required if the new file uses any
                                                      !! vertical grid axes.
+  real, optional,        intent(in)    :: timeunit   !< length, in seconds, of the units for time. The
+                                                     !! default value is 86400.0, for 1 day.
 
   logical        :: use_lath, use_lonh, use_latq, use_lonq, use_time
   logical        :: use_layer, use_int, use_periodic
@@ -1067,12 +1066,14 @@ subroutine register_restart_file_axis(CS, filename, vars, novars, timeunit, G, d
     gridLonT => NULL(), gridLonB => NULL()
   character(len=40) :: time_units, x_axis_units, y_axis_units
   character(len=8)  :: t_grid, t_grid_read
-
+  type(vardesc), pointer, dimension(:) :: vars  
+  vars => CS%restart_field%vars
+  
   use_lath  = .false. ; use_lonh     = .false.
   use_latq  = .false. ; use_lonq     = .false.
   use_time  = .false. ; use_periodic = .false.
   use_layer = .false. ; use_int      = .false.
-
+  
   domain_set = .false.
   if (present(G)) then
     domain_set = .true. ; Domain => G%Domain
@@ -1091,7 +1092,7 @@ subroutine register_restart_file_axis(CS, filename, vars, novars, timeunit, G, d
   endif
 
   ! Define the coordinates.
-  do k=1,novars
+  do k=1,CS%fileObj%nvar
     select case (vars(k)%hor_grid)
       case ('h') ; use_lath = .true. ; use_lonh = .true.
       case ('q') ; use_latq = .true. ; use_lonq = .true.
@@ -1113,30 +1114,30 @@ subroutine register_restart_file_axis(CS, filename, vars, novars, timeunit, G, d
       case default
         call MOM_error(FATAL, "MOM_restart register_restart_file_axis: "//trim(vars(k)%name)//&
                         " has unrecognized z_grid "//trim(vars(k)%z_grid))
-    end select
-    t_grid = adjustl(vars(k)%t_grid)
+   end select
+     t_grid = adjustl(vars(k)%t_grid)
     select case (t_grid(1:1))
       case ('s', 'a', 'm') ; use_time = .true.
       case ('p') ; use_periodic = .true.
         if (len_trim(t_grid(2:8)) <= 0) call MOM_error(FATAL, &
           "MOM_restart register_restart_file_axis: No periodic axis length was specified in "//&
           trim(vars(k)%t_grid) // " in the periodic axes of variable "//&
-          trim(vars(k)%name)//" in file "//trim(filename))
+          trim(vars(k)%name)//" in file "//trim(CS%restartfile))
         var_periods = -9999999
         t_grid_read = adjustl(t_grid(2:8))
         read(t_grid_read,*) var_periods
         if (var_periods == -9999999) call MOM_error(FATAL, &
           "MOM_restart register_restart_file_axis: Failed to read the number of periods from "//&
           trim(vars(k)%t_grid) // " in the periodic axes of variable "//&
-          trim(vars(k)%name)//" in file "//trim(filename))
+          trim(vars(k)%name)//" in file "//trim(CS%restartfile))
         if (var_periods < 1) call MOM_error(FATAL, "MOM_restart register_restart_file_axis: "//&
-           "variable "//trim(vars(k)%name)//" in file "//trim(filename)//&
+           "variable "//trim(vars(k)%name)//" in file "//trim(CS%restartfile)//&
            " uses a periodic time axis, and must have a positive "//&
            "value for the number of periods in "//vars(k)%t_grid )
         if ((num_periods > 0) .and. (var_periods /= num_periods)) &
           call MOM_error(FATAL, "MOM_restart register_restart_file_axis: "//&
             "Only one value of the number of periods can be used in the "//&
-            "register_restart_file_axis call for file "//trim(filename)//".  The second is "//&
+            "register_restart_file_axis call for file "//trim(CS%restartfile)//".  The second is "//&
             "variable "//trim(vars(k)%name)//" with t_grid "//vars(k)%t_grid )
 
         num_periods = var_periods
@@ -1152,38 +1153,38 @@ subroutine register_restart_file_axis(CS, filename, vars, novars, timeunit, G, d
   if (use_lath) &
     !call mpp_write_meta(unit, axis_lath, name="lath", units=y_axis_units, longname="Latitude", &
     !               cartesian='Y', domain = y_domain, data=gridLatT(jsg:jeg))
-    call fms_register_restart_axis(CS%fileobj, filename, "lath", gridLatT(jsg:jeg), &
+    call fms_register_restart_axis(CS%fileobj, CS%restartfile, "lath", gridLatT(jsg:jeg), &
          'Y', units=y_axis_units, longname="Latitude")
 
   if (use_lonh) &
     !call mpp_write_meta(unit, axis_lonh, name="lonh", units=x_axis_units, longname="Longitude", &
     !               cartesian='X', domain = x_domain, data=gridLonT(isg:ieg))
-    call fms_register_restart_axis(CS%fileobj, filename, "lonh", gridLatT(isg:ieg), &
+    call fms_register_restart_axis(CS%fileobj, CS%restartfile, "lonh", gridLatT(isg:ieg), &
          'X', units=x_axis_units, longname="Longitude")
     
   if (use_latq) &
     !call mpp_write_meta(unit, axis_latq, name="latq", units=y_axis_units, longname="Latitude", &
     !               cartesian='Y', domain = y_domain, data=gridLatB(JsgB:JegB))
-    call fms_register_restart_axis(CS%fileobj, filename, "latq", gridLatB(JsgB:JegB), &
+    call fms_register_restart_axis(CS%fileobj, CS%restartfile, "latq", gridLatB(JsgB:JegB), &
          'Y', units=y_axis_units, longname="Latitude")
   if (use_lonq) &
     !call mpp_write_meta(unit, axis_lonq, name="lonq", units=x_axis_units, longname="Longitude", &
     !               cartesian='X', domain = x_domain, data=gridLonB(IsgB:IegB))
-    call fms_register_restart_axis(CS%fileobj, filename, "lonq", gridLonB(IsgB:IegB), &
+    call fms_register_restart_axis(CS%fileobj, CS%restartfile, "lonq", gridLonB(IsgB:IegB), &
          'X', units=x_axis_units, longname="Longitude")
 
   if (use_layer) &
     !call mpp_write_meta(unit, axis_layer, name="Layer", units=trim(GV%zAxisUnits), &
     !     longname="Layer "//trim(GV%zAxisLongName), cartesian='Z', &
     !      sense=1, data=GV%sLayer(1:GV%ke))
-    call fms_register_restart_axis(CS%fileobj, filename, "Layer", GV%sLayer(1:GV%ke), &
+    call fms_register_restart_axis(CS%fileobj, CS%restartfile, "Layer", GV%sLayer(1:GV%ke), &
          'Z', units=trim(GV%zAxisUnits), longname="Layer "//trim(GV%zAxisLongName), sense=1)
    
   if (use_int) &
     !call mpp_write_meta(unit, axis_int, name="Interface", units=trim(GV%zAxisUnits), &
     !      longname="Interface "//trim(GV%zAxisLongName), cartesian='Z', &
     !      sense=1, data=GV%sInterface(1:GV%ke+1))
-    call fms_register_restart_axis(CS%fileobj, filename, "Interface", GV%sInterface(1:GV%ke+1), &
+    call fms_register_restart_axis(CS%fileobj, CS%restartfile, "Interface", GV%sInterface(1:GV%ke+1), &
          'Z', units=trim(GV%zAxisUnits), longname="Interface "//trim(GV%zAxisLongName), sense=1)
 
   if (use_time) then ; if (present(timeunit)) then
@@ -1203,23 +1204,23 @@ subroutine register_restart_file_axis(CS, filename, vars, novars, timeunit, G, d
     endif
 
     !call mpp_write_meta(unit, axis_time, name="Time", units=time_units, longname="Time", cartesian='T')
-    call fms_register_restart_axis(CS%fileobj, filename, "Time", &
+    call fms_register_restart_axis(CS%fileobj, CS%restartfile, "Time", &
       G%Domain%io_layout(1)*G%Domain%io_layout(2), units=time_units, longname="Time")
   else
     !call mpp_write_meta(unit, axis_time, name="Time", units="days", longname="Time",cartesian= 'T')
-     call fms_register_restart_axis(CS%fileobj, filename, "Time", &
+     call fms_register_restart_axis(CS%fileobj, CS%restartfile, "Time", &
        G%Domain%io_layout(1)*G%Domain%io_layout(2), units="days", longname="Time")
   endif ; endif
 
   if (use_periodic) then
     if (num_periods <= 1) call MOM_error(FATAL, "MOM_restart register_restart_file_axis: "//&
-      "num_periods for file "//trim(filename)//" must be at least 1.")
+      "num_periods for file "//trim(CS%restartfile)//" must be at least 1.")
     ! Define a periodic axis with unit labels.
     allocate(period_val(num_periods))
     do k=1,num_periods ; period_val(k) = real(k) ; enddo
     !call mpp_write_meta(unit, axis_periodic, name="Period", units="nondimensional", &
     !      longname="Periods for cyclical varaiables", cartesian= 't', data=period_val)
-     call fms_register_restart_axis(CS%fileobj, filename, "Period", period_val, &
+     call fms_register_restart_axis(CS%fileobj, CS%restartfile, "Period", period_val, &
          cartesian='T', units="nondimensional", longname="Periods for cyclical variables")
     deallocate(period_val)
   endif  
