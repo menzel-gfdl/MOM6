@@ -25,7 +25,6 @@ use MOM_io, only : slasher, fieldtype
 use MOM_io, only : write_field, close_file, SINGLE_FILE, MULTIPLE
 use MOM_restart, only : register_restart_field, query_initialized, save_restart
 use MOM_restart, only : restart_init, restore_state, MOM_restart_CS
-use MOM_restart, only : register_restart_file_axis
 use MOM_time_manager, only : time_type, time_type_to_real, time_type_to_real, real_to_time
 use MOM_transcribe_grid, only : copy_dyngrid_to_MOM_grid, copy_MOM_grid_to_dyngrid
 use MOM_variables, only : surface
@@ -1507,7 +1506,6 @@ subroutine initialize_ice_shelf(param_file, ocn_grid, Time, CS, diag, forces, fl
 
   if (save_IC .and. .not.((dirs%input_filename(1:1) == 'r') .and. &
                           (LEN_TRIM(dirs%input_filename) == 1))) then
-    call register_restart_file_axis(CS%restart_CSp, G=G)
     call save_restart(dirs%output_directory, CS%Time, G, &
                       CS%restart_CSp, filename=IC_file)
   endif
@@ -1691,7 +1689,6 @@ subroutine ice_shelf_save_restart(CS, Time, directory, time_stamped, filename_su
   if (present(directory)) then ; restart_dir = directory
   else ; restart_dir = CS%restart_output_dir ; endif
 
-  call register_restart_file_axis(CS%restart_CSp)
   call save_restart(restart_dir, Time, CS%grid, CS%restart_CSp, time_stamped)
   
 end subroutine ice_shelf_save_restart

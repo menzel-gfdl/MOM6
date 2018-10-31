@@ -38,7 +38,7 @@ use MOM_io,                   only : slasher, file_exists, MOM_read_data
 use MOM_obsolete_params,      only : find_obsolete_params
 use MOM_restart,              only : register_restart_field, query_initialized, save_restart
 use MOM_restart,              only : restart_init, is_new_run, MOM_restart_CS
-use MOM_restart,              only : register_restart_file_axis
+!use MOM_restart,              only : register_restart_file_axis
 use MOM_spatial_means,        only : global_mass_integral
 use MOM_time_manager,         only : time_type, real_to_time, time_type_to_real, operator(+)
 use MOM_time_manager,         only : operator(-), operator(>), operator(*), operator(/)
@@ -2439,7 +2439,7 @@ subroutine initialize_MOM(Time, Time_init, param_file, dirs, CS, restart_CSp, &
                 .not.((dirs%input_filename(1:1) == 'r') .and. &
                       (LEN_TRIM(dirs%input_filename) == 1))
 
-
+  
   if (CS%ensemble_ocean) then
       call init_oda(Time, G, GV, CS%odaCS)
   endif
@@ -2477,7 +2477,6 @@ subroutine finish_MOM_initialization(Time, dirs, CS, restart_CSp)
     allocate(z_interface(SZI_(G),SZJ_(G),SZK_(G)+1))
     call find_eta(CS%h, CS%tv, GV%g_Earth, G, GV, z_interface)
 
-    call register_restart_file_axis(restart_CSp_tmp, G=G, GV=GV)
     call register_restart_field(z_interface, "eta", .true., G, restart_CSp_tmp, &
                                 GV=GV, longname="Interface heights", units="meter", z_grid='i')
     call save_restart(dirs%output_directory, Time, G, &
@@ -2485,6 +2484,8 @@ subroutine finish_MOM_initialization(Time, dirs, CS, restart_CSp)
     deallocate(z_interface)
     deallocate(restart_CSp_tmp)
   endif
+
+  
 
   call write_energy(CS%u, CS%v, CS%h, CS%tv, Time, 0, G, GV, &
                     CS%sum_output_CSp, CS%tracer_flow_CSp)
