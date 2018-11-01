@@ -870,14 +870,15 @@ subroutine save_restart(directory, time, G, CS, time_stamped, filename, GV)
   integer :: isL, ieL, jsL, jeL, pos
   character(len=64) :: time_stamp
   character(len=64) :: ts
-
+  integer :: str_split_index = 1 ! index of location of '/' in directory name
+  character(len=64) :: rest_directory   
   if (.not.associated(CS)) call MOM_error(FATAL, "MOM_restart " // &
       "save_restart: Module must be initialized before it is used.")
   if (CS%novars > CS%max_fields) call restart_error(CS)
 
-  ! With parallel read & write, it is possible to disable the following...
+!! With parallel read & write, it is possible to disable the following...
 
-  ! The maximum file size is 4294967292, according to the NetCDF documentation.
+!!  The maximum file size is 4294967292, according to the NetCDF documentation.
   if (CS%large_file_support) max_file_size = 4294967292_8
 
   num_files = 0
@@ -887,10 +888,21 @@ subroutine save_restart(directory, time, G, CS, time_stamped, filename, GV)
 
   restartname = trim(CS%restartfile)
   time_stamp = ' '
+  
+!! check for forward slash in restart directory name and remove it if its position
+!! is > 2 (i.e., directory is not './', but is 'DIRECTORYNAME/').
+!! fms_save_restart adds the slash to the full directory path (e.g., 'DIRECTORYNAME/RESTARTFILE')
+  str_split_index = SCAN(directory,'/')
+  if (str_split_index > 2) then
+     rest_directory = trim(directory(1:str_split_index-1))
+  else
+     rest_directory = trim(directory)
+  endif
+
   if (present(filename)) restartname = trim(filename)
   if (PRESENT(time_stamped)) then ; if (time_stamped) then
     call get_date(time,year,month,days,hour,minute,seconds)
-    ! Compute the year-day, because I don't like months. - RWH
+!!  Compute the year-day, because I don't like months. - RWH
     do m=1,month-1
       days = days + days_in_month(set_date(year,m,2,0,0,0))
     enddo
@@ -907,94 +919,97 @@ subroutine save_restart(directory, time, G, CS, time_stamped, filename, GV)
     endif
     restartname = trim(CS%restartfile)//trim(restartname)
     time_stamp = trim(ts)
+    call fms_save_restart(CS%fileObj,time_stamp=time_stamp, directory=rest_directory, append=.true., time_level=restart_time)
   endif ; endif
 
-  next_var = 1
-  do while (next_var <= CS%novars )
-    start_var = next_var
-    size_in_file = 8*(2*G%Domain%niglobal+2*G%Domain%njglobal+2*nz+1000)
+  call fms_save_restart(CS%fileObj, directory=rest_directory, append=.true., time_level=restart_time)
+
+ ! next_var = 1
+ ! do while (next_var <= CS%novars )
+ !   start_var = next_var
+ !   size_in_file = 8*(2*G%Domain%niglobal+2*G%Domain%njglobal+2*nz+1000)
    
-    do m=start_var,CS%novars
-      call query_vardesc(CS%restart_field(m)%vars, hor_grid=hor_grid, &
-                         z_grid=z_grid, t_grid=t_grid, caller="save_restart")
-      if (hor_grid == '1') then
-        var_sz = 8
-      else
-        var_sz = 8*(G%Domain%niglobal+1)*(G%Domain%njglobal+1)
-      endif
-      select case (z_grid)
-        case ('L') ; var_sz = var_sz * nz
-        case ('i') ; var_sz = var_sz * (nz+1)
-      end select
-      t_grid = adjustl(t_grid)
-      if (t_grid(1:1) == 'p') then
-        if (len_trim(t_grid(2:8)) > 0) then
-          var_periods = -1
-          t_grid_read = adjustl(t_grid(2:8))
-          read(t_grid_read,*) var_periods
-          if (var_periods > 1) var_sz = var_sz * var_periods
-        endif
-      endif
+ !   do m=start_var,CS%novars
+ !     call query_vardesc(CS%restart_field(m)%vars, hor_grid=hor_grid, &
+ !                        z_grid=z_grid, t_grid=t_grid, caller="save_restart")
+ !     if (hor_grid == '1') then
+ !       var_sz = 8
+ !     else
+ !       var_sz = 8*(G%Domain%niglobal+1)*(G%Domain%njglobal+1)
+ !     endif
+ !     select case (z_grid)
+ !       case ('L') ; var_sz = var_sz * nz
+ !       case ('i') ; var_sz = var_sz * (nz+1)
+ !     end select
+ !     t_grid = adjustl(t_grid)
+ !     if (t_grid(1:1) == 'p') then
+ !       if (len_trim(t_grid(2:8)) > 0) then
+ !         var_periods = -1
+ !         t_grid_read = adjustl(t_grid(2:8))
+ !         read(t_grid_read,*) var_periods
+ !         if (var_periods > 1) var_sz = var_sz * var_periods
+ !       endif
+ !     endif
 
-      if ((m==start_var) .OR. (size_in_file < max_file_size-var_sz)) then
-        size_in_file = size_in_file + var_sz
-      else ; exit
-      endif
+ !     if ((m==start_var) .OR. (size_in_file < max_file_size-var_sz)) then
+ !       size_in_file = size_in_file + var_sz
+ !     else ; exit
+ !     endif
 
-    enddo
-    next_var = m
+ !   enddo
+ !   next_var = m
 
-    !query fms_io if there is a filename_appendix (for ensemble runs)
-    call get_filename_appendix(filename_appendix)
-    if (len_trim(filename_appendix) > 0) then
-       length = len_trim(restartname)
-       if (restartname(length-2:length) == '.nc') then
-          restartname = restartname(1:length-3)//'.'//trim(filename_appendix)//'.nc'
-       else
-          restartname = restartname(1:length)  //'.'//trim(filename_appendix)
-       endif
-    endif
-
-    restartpath = trim(directory)// trim(restartname)
-
-    if (num_files < 10) then
-      write(suffix,'("_",I1)') num_files
-    else
-      write(suffix,'("_",I2)') num_files
-    endif
-
-    if (num_files > 0) restartpath = trim(restartpath) // trim(suffix)
-
-    do m=start_var,next_var-1
-      vars(m-start_var+1) = CS%restart_field(m)%vars
-    enddo
-
-    call query_vardesc(vars(1), t_grid=t_grid, hor_grid=hor_grid, caller="save_restart")
-    t_grid = adjustl(t_grid)
+ !!  query fms_io if there is a filename_appendix (for ensemble runs)
+ !   call get_filename_appendix(filename_appendix)
+ !   if (len_trim(filename_appendix) > 0) then
+ !      length = len_trim(restartname)
+ !      if (restartname(length-2:length) == '.nc') then
+ !         restartname = restartname(1:length-3)//'.'//trim(filename_appendix)//'.nc'
+ !      else
+ !         restartname = restartname(1:length)  //'.'//trim(filename_appendix)
+ !      endif
+ !   endif
    
-    if (t_grid(1:1) /= 'p') &
-      call modify_vardesc(vars(1), t_grid='s', caller="save_restart")
-    select case (hor_grid)
-      case ('q') ; pos = CORNER
-      case ('h') ; pos = CENTER
-      case ('u') ; pos = EAST_FACE
-      case ('v') ; pos = NORTH_FACE
-      case ('Bu') ; pos = CORNER
-      case ('T')  ; pos = CENTER
-      case ('Cu') ; pos = EAST_FACE
-      case ('Cv') ; pos = NORTH_FACE
-      case ('1') ; pos = 0
-      case default ; pos = 0
-    end select
 
-    call fms_save_restart(CS%fileObj, time_stamp, directory=trim(directory), append=.true., time_level=restart_time)
-   
+ !   restartpath = trim(directory)// trim(restartname)
+
+ !   if (num_files < 10) then
+ !     write(suffix,'("_",I1)') num_files
+ !   else
+ !     write(suffix,'("_",I2)') num_files
+ !   endif
+
+ !   if (num_files > 0) restartpath = trim(restartpath) // trim(suffix)
+     
     
-    !Prepare the checksum of the restart fields to be written to restart files
-   ! call get_checksum_loop_ranges(G, pos, isL, ieL, jsL, jeL)
-   ! do m=start_var,next_var-1
-   !   if (associated(CS%var_ptr3d(m)%p)) then
-   !     check_val(m-start_var+1,1) = mpp_chksum(CS%var_ptr3d(m)%p(isL:ieL,jsL:jeL,:))
+ !   do m=start_var,next_var-1
+ !     vars(m-start_var+1) = CS%restart_field(m)%vars
+ !   enddo
+
+ !   call query_vardesc(vars(1), t_grid=t_grid, hor_grid=hor_grid, caller="save_restart")
+ !   t_grid = adjustl(t_grid)
+   
+ !   if (t_grid(1:1) /= 'p') &
+ !     call modify_vardesc(vars(1), t_grid='s', caller="save_restart")
+ !   select case (hor_grid)
+ !     case ('q') ; pos = CORNER
+ !     case ('h') ; pos = CENTER
+ !     case ('u') ; pos = EAST_FACE
+ !     case ('v') ; pos = NORTH_FACE
+ !      case ('Bu') ; pos = CORNER
+ !     case ('T')  ; pos = CENTER
+ !     case ('Cu') ; pos = EAST_FACE
+ !     case ('Cv') ; pos = NORTH_FACE
+ !     case ('1') ; pos = 0
+ !     case default ; pos = 0
+ !   end select
+
+   
+ !!  Prepare the checksum of the restart fields to be written to restart files
+ !   call get_checksum_loop_ranges(G, pos, isL, ieL, jsL, jeL)
+ !   do m=start_var,next_var-1
+ !     if (associated(CS%var_ptr3d(m)%p)) then
+ !       check_val(m-start_var+1,1) = mpp_chksum(CS%var_ptr3d(m)%p(isL:ieL,jsL:jeL,:))
    !   elseif (associated(CS%var_ptr2d(m)%p)) then
    !     check_val(m-start_var+1,1) = mpp_chksum(CS%var_ptr2d(m)%p(isL:ieL,jsL:jeL))
    !   elseif (associated(CS%var_ptr4d(m)%p)) then
@@ -1028,17 +1043,16 @@ subroutine save_restart(directory, time, G, CS, time_stamped, filename, GV)
     ! elseif (associated(CS%var_ptr1d(m)%p)) then
     !   call write_field(unit, fields(m-start_var+1), CS%var_ptr1d(m)%p, &
     !                    restart_time)
-    ! elseif (associated(CS%var_ptr0d(m)%p)) then
-    !   call write_field(unit, fields(m-start_var+1), CS%var_ptr0d(m)%p, &
-    !                   restart_time)
-    ! endif
-    !enddo
+ !    elseif (associated(CS%var_ptr0d(m)%p)) then
+ !      call write_field(unit, fields(m-start_var+1), CS%var_ptr0d(m)%p, &
+ !                      restart_time)
+ !    endif
+ !   enddo
   
-    !call close_file(unit)  
-    ! num_files = num_files+1
-    call register_restart_file_axis(CS, vars, (next_var-start_var), G=G, GV=GV)
-
-  enddo
+ !   call close_file(unit)  
+ !   num_files = num_files+1
+ 
+ ! enddo
 end subroutine save_restart
 
 !> Routine wraps fms register_restart_axis interface to set up
@@ -1080,6 +1094,19 @@ subroutine register_restart_file_axis(CS, vars, novars, G, dG, GV, timeunit)
     gridLonT => NULL(), gridLonB => NULL()
   character(len=40) :: time_units, x_axis_units, y_axis_units
   character(len=8)  :: t_grid, t_grid_read
+  !----------
+  !ug support
+  integer, parameter :: XIDX = 1
+  integer, parameter :: YIDX = 2
+  integer, parameter :: CIDX = 3
+  integer, parameter :: ZIDX = 4
+  integer, parameter :: HIDX = 5
+  integer, parameter :: TIDX = 6
+  integer, parameter :: UIDX = 7
+  integer, parameter :: CCIDX = 8
+!---------
+
+
  
   use_lath  = .false. ; use_lonh     = .false.
   use_latq  = .false. ; use_lonq     = .false.
@@ -1173,7 +1200,7 @@ subroutine register_restart_file_axis(CS, vars, novars, G, dG, GV, timeunit)
 
       ! Pass axis variables to fms_register_restart_axis:
       ! fileObj, filename, fieldname, data, cartesian, units, longname, sense ,min , calendar
-      if (use_lath) &
+      if (use_lath) & 
          call fms_register_restart_axis(CS%fileobj, CS%restartfile, "lath", gridLatT(jsg:jeg), &
          'Y', units=y_axis_units, longname="Latitude")
       if (use_lonh) &
