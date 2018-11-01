@@ -900,29 +900,33 @@ subroutine save_restart(directory, time, G, CS, time_stamped, filename, GV)
   endif
 
   if (present(filename)) restartname = trim(filename)
-  if (PRESENT(time_stamped)) then ; if (time_stamped) then
-    call get_date(time,year,month,days,hour,minute,seconds)
+  if (PRESENT(time_stamped)) then 
+     if (time_stamped) then
+        call get_date(time,year,month,days,hour,minute,seconds)
 !!  Compute the year-day, because I don't like months. - RWH
-    do m=1,month-1
-      days = days + days_in_month(set_date(year,m,2,0,0,0))
-    enddo
-    seconds = seconds + 60*minute + 3600*hour
-    if (year <= 9999) then
-      write(restartname,'("_Y",I4.4,"_D",I3.3,"_S",I5.5)') year, days, seconds
-      write(ts,'("_Y",I4.4,"_D",I3.3,"_S",I5.5)') year, days, seconds
-    elseif (year <= 99999) then
-      write(restartname,'("_Y",I5.5,"_D",I3.3,"_S",I5.5)') year, days, seconds
-      write(ts,'("_Y",I4.4,"_D",I3.3,"_S",I5.5)') year, days, seconds
-    else
-      write(restartname,'("_Y",I10.10,"_D",I3.3,"_S",I5.5)') year, days, seconds
-      write(ts,'("_Y",I4.4,"_D",I3.3,"_S",I5.5)') year, days, seconds
-    endif
-    restartname = trim(CS%restartfile)//trim(restartname)
-    time_stamp = trim(ts)
-    call fms_save_restart(CS%fileObj,time_stamp=time_stamp, directory=rest_directory, append=.true., time_level=restart_time)
-  endif ; endif
+        do m=1,month-1
+           days = days + days_in_month(set_date(year,m,2,0,0,0))
+        enddo
+        seconds = seconds + 60*minute + 3600*hour
+        if (year <= 9999) then
+           write(restartname,'("_Y",I4.4,"_D",I3.3,"_S",I5.5)') year, days, seconds
+           write(ts,'("_Y",I4.4,"_D",I3.3,"_S",I5.5)') year, days, seconds
+        elseif (year <= 99999) then
+           write(restartname,'("_Y",I5.5,"_D",I3.3,"_S",I5.5)') year, days, seconds
+           write(ts,'("_Y",I4.4,"_D",I3.3,"_S",I5.5)') year, days, seconds
+        else
+           write(restartname,'("_Y",I10.10,"_D",I3.3,"_S",I5.5)') year, days, seconds
+           write(ts,'("_Y",I4.4,"_D",I3.3,"_S",I5.5)') year, days, seconds
+        endif
+        restartname = trim(CS%restartfile)//trim(restartname)
+        time_stamp = trim(ts)
+        call fms_save_restart(CS%fileObj,time_stamp=time_stamp, directory=rest_directory, append=.true., time_level=restart_time)
+     endif ; 
+  else 
+     call fms_save_restart(CS%fileObj, directory=rest_directory, append=.true., time_level=restart_time)
+  endif
 
-  call fms_save_restart(CS%fileObj, directory=rest_directory, append=.true., time_level=restart_time)
+  
 
  ! next_var = 1
  ! do while (next_var <= CS%novars )
